@@ -48,4 +48,13 @@ module.exports = {
       password_confirm: joi.string().required().label('Password confirmation'),
     },
   },
+
+  pagination: {
+    query: {
+      page_number: joi.number().integer().positive(),
+      page_size: joi.number().integer().positive(),
+      sort: joi.allow(),
+      search: joi.allow(),
+    },
+  },
 };

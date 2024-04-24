@@ -10,8 +10,13 @@ const route = express.Router();
 module.exports = (app) => {
   app.use('/users', route);
 
-  // Get list of users
-  route.get('/', authenticationMiddleware, usersControllers.getUsers);
+  // Get list of users with pagination
+  route.get(
+    '',
+    authenticationMiddleware,
+    celebrate(usersValidator.pagination),
+    usersControllers.getUsers
+  );
 
   // Create user
   route.post(
