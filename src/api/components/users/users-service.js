@@ -1,7 +1,6 @@
 const usersRepository = require('./users-repository');
 const { hashPassword, passwordMatched } = require('../../../utils/password');
 const { lowerCase, floor } = require('lodash');
-const { user } = require('../../../models');
 
 /**
  * Get list of users
@@ -78,11 +77,15 @@ async function getUsers(
     var total_pages = floor(totalUserName / page_size) + 1;
   } else if (page_size > page_number && checkEmail == true) {
     var total_pages = floor(totalUserEmail / page_size) + 1;
-  } else if (page_size < page_number && checkName == true) {
+  }
+
+  if (page_size < page_number && checkName == true) {
     var total_pages = floor(totalUserName / page_size) + 1;
   } else if (page_size < page_number && checkEmail == true) {
     var total_pages = floor(totalUserEmail / page_size) + 1;
-  } else if (page_number > page_size) {
+  }
+
+  if (page_number > page_size) {
     var total_pages = floor(totalDocuments / page_size) + 1;
   } else if (page_number < page_size) {
     var total_pages = floor(totalDocuments / page_size) + 1;

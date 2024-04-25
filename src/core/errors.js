@@ -72,6 +72,11 @@ const errorTypes = {
     status: 403,
     code: 'INVALID_PASSWORD_ERROR',
   },
+  INVALID_PIN: {
+    description: 'Invalid pin',
+    status: 403,
+    code: 'INVALID_PIN_ERROR',
+  },
   TOKEN_EXPIRED: {
     description: 'Token expired',
     status: 419,
@@ -123,6 +128,11 @@ const errorTypes = {
     description: 'This email already taken, try use another',
     status: 409,
     code: 'EMAIL_ALREADY_TAKEN_ERROR',
+  },
+  NAME_ALREADY_TAKEN: {
+    description: 'This name already taken, try use another',
+    status: 409,
+    code: 'NAME_ALREADY_TAKEN_ERROR',
   },
   SEND_EMAIL: {
     description: 'Send email error',
