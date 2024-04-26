@@ -1,6 +1,6 @@
 const express = require('express');
 
-const authenticationMiddleware = require('../../middlewares/authentication-middleware');
+const authenticationMiddleware = require('../../middlewares/authentication-middleware-digital-banking');
 const celebrate = require('../../../core/celebrate-wrappers');
 const digitalBankingControllers = require('./digital-banking-controller');
 const digitalBankingValidator = require('./digital-banking-validator');
@@ -13,6 +13,7 @@ module.exports = (app) => {
   //Get list of accounts with pagination
   route.get(
     '',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.pagination),
     digitalBankingControllers.getAccounts
   );
@@ -20,13 +21,22 @@ module.exports = (app) => {
   //Create new account
   route.post(
     '/',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.createNewAccount),
     digitalBankingControllers.createNewAccount
+  );
+
+  //Login digital banking
+  route.post(
+    '/login',
+    celebrate(digitalBankingValidator.login),
+    digitalBankingControllers.login
   );
 
   //Change pin
   route.post(
     '/:id/change-pin',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.changePin),
     digitalBankingControllers.changePin
   );
@@ -34,6 +44,7 @@ module.exports = (app) => {
   //Check Balance
   route.get(
     '/:id',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.checkDelete),
     digitalBankingControllers.getAccount
   );
@@ -41,6 +52,7 @@ module.exports = (app) => {
   //Close account
   route.delete(
     '/:id',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.checkDelete),
     digitalBankingControllers.deleteAccount
   );
@@ -48,6 +60,7 @@ module.exports = (app) => {
   //Withdraw money
   route.put(
     '/:id/withdraw-money',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.Money),
     digitalBankingControllers.withdrawMoney
   );
@@ -55,6 +68,7 @@ module.exports = (app) => {
   //Deposit money
   route.put(
     '/:id/deposit-money',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.Money),
     digitalBankingControllers.depositMoney
   );
@@ -62,6 +76,7 @@ module.exports = (app) => {
   //Transfer money
   route.put(
     '/:id/transfer-money',
+    authenticationMiddleware,
     celebrate(digitalBankingValidator.transferMoney),
     digitalBankingControllers.transferMoney
   );

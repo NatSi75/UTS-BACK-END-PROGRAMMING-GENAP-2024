@@ -1,6 +1,7 @@
 const digitalBankingService = require('./digital-banking-service');
 const { errorResponder, errorTypes } = require('../../../core/errors');
 
+/* PENERENAPAN SOAL NO.1 */
 /**
  * Handle get list of accounts request
  * @param {object} request - Express request object
@@ -79,6 +80,118 @@ async function getAccounts(request, response, next) {
   }
 }
 
+/* PENERENAPAN SOAL NO.2 */
+/**
+ * Handle login request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function login(request, response, next) {
+  try {
+    const account_email = request.body.account_email;
+    const account_pin = request.body.account_pin;
+
+    //Waktu sekarang
+    var dateTime = new Date();
+    var yearNow = dateTime.getFullYear();
+    var monthNow = dateTime.getMonth() + 1;
+    var dateNow = dateTime.getDate();
+    var hoursNow = dateTime.getHours();
+    var minutesNow = dateTime.getMinutes();
+    var secondsNow = dateTime.getSeconds();
+
+    //Waktu account login
+    data = digitalBankingService.attemptLogin();
+    var attempt = data[0].temp;
+    var hours = data[1].hours;
+    var minutes = data[2].minutes;
+
+    const successCheckBlock =
+      await digitalBankingService.checkBlock(account_email);
+    if (successCheckBlock == false) {
+      // Jika email account nggak ada di list block
+      // Check login credentials
+      const loginSuccess = await digitalBankingService.checkLoginCredentials(
+        account_email,
+        account_pin
+      );
+
+      if (!loginSuccess && attempt == 5) {
+        //Jika attempt sudah lima kali, maka akan dimasukan ke list block
+        const successCreateBlock = await digitalBankingService.createBlock(
+          account_email,
+          hours,
+          minutes
+        );
+
+        throw errorResponder(
+          errorTypes.INVALID_CREDENTIALS,
+          `Wrong Email or Pin`,
+          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
+        );
+      } else if (!loginSuccess && attempt < 5) {
+        //Selama attempt kurang dari 5, tidak akan dimasukan ke list block
+        throw errorResponder(
+          errorTypes.INVALID_CREDENTIALS,
+          `Wrong Email or Pin`,
+          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
+        );
+      }
+
+      return response.status(200).json(loginSuccess);
+    } else if (successCheckBlock == true) {
+      //Jika email account ada di list block
+      const detailAccount =
+        await digitalBankingService.getDetailEmailBlock(account_email);
+      if (
+        detailAccount.minutes <= minutesNow &&
+        detailAccount.hours <= hoursNow
+      ) {
+        //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
+        //maka dia boleh login dan menghilangkan dia dari list block
+        const deleteEmail =
+          await digitalBankingService.deleteBlock(account_email);
+        // Check login credentials
+        const loginSuccess = await digitalBankingService.checkLoginCredentials(
+          account_email,
+          account_pin
+        );
+
+        if (!loginSuccess) {
+          if (failedLogin && deleteEmail) {
+            throw errorResponder(
+              errorTypes.INVALID_CREDENTIALS,
+              'Wrong Email or Pin',
+              `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
+            );
+          }
+        }
+        return response.status(200).json(loginSuccess);
+      } else if (
+        detailAccount.minutes > minutesNow ||
+        detailAccount.hours > hoursNow
+      ) {
+        //Jika waktu menunggu account lebih besar dari waktu sekarang
+        //maka dia tidak boleh login dan harus menunggu
+        var waitingTime =
+          (detailAccount.hours - hoursNow) * 60 +
+          detailAccount.minutes -
+          minutesNow;
+        throw errorResponder(
+          errorTypes.FORBIDDEN,
+          `Too many failed login attempts, Waiting time ${waitingTime} minutes`,
+          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} mencoba login.Namun karena mendapat error 403 karena telah melebihi batas limit.`
+        );
+      }
+    }
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/* SOAL NO.3 */
 /**
  * Handle create new account request
  * @param {object} request - Express request object
@@ -142,45 +255,6 @@ async function createNewAccount(request, response, next) {
 }
 
 /**
- * Handle withdraw money account request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function withdrawMoney(request, response, next) {
-  try {
-    const id = request.params.id;
-    const balance = request.body.balance;
-    const account_pin = request.body.account_pin;
-
-    // Check Login credential
-    const loginSuccess = await digitalBankingService.checkLoginCredentials(
-      id,
-      account_pin
-    );
-
-    if (!loginSuccess) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
-    }
-
-    const success = await digitalBankingService.withdrawMoney(id, balance);
-    if (!success) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to withdraw money'
-      );
-    }
-
-    const account = await digitalBankingService.getAccount(id);
-
-    return response.status(200).json({ account });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
  * Handle check balance account request
  * @param {object} request - Express request object
  * @param {object} response - Express response object
@@ -210,45 +284,6 @@ async function getAccount(request, response, next) {
     const account = await digitalBankingService.getAccount(id);
 
     return response.status(200).json(account);
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
- * Handle deposit money account request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function depositMoney(request, response, next) {
-  try {
-    const id = request.params.id;
-    const balance = request.body.balance;
-    const account_pin = request.body.account_pin;
-
-    // Check Login credential
-    const loginSuccess = await digitalBankingService.checkLoginCredentials(
-      id,
-      account_pin
-    );
-
-    if (!loginSuccess) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
-    }
-
-    const success = await digitalBankingService.depositMoney(id, balance);
-    if (!success) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to withdraw money'
-      );
-    }
-
-    const account = await digitalBankingService.getAccount(id);
-
-    return response.status(200).json({ account });
   } catch (error) {
     return next(error);
   }
@@ -342,6 +377,84 @@ async function changePin(request, response, next) {
  * @param {object} next - Express route middlewares
  * @returns {object} Response object or pass an error to the next route
  */
+async function withdrawMoney(request, response, next) {
+  try {
+    const id = request.params.id;
+    const balance = request.body.balance;
+    const account_pin = request.body.account_pin;
+
+    // Check Login credential
+    const loginSuccess = await digitalBankingService.checkLoginCredentials(
+      id,
+      account_pin
+    );
+
+    if (!loginSuccess) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const success = await digitalBankingService.withdrawMoney(id, balance);
+    if (!success) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to withdraw money'
+      );
+    }
+
+    const account = await digitalBankingService.getAccount(id);
+
+    return response.status(200).json({ account });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle deposit money account request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function depositMoney(request, response, next) {
+  try {
+    const id = request.params.id;
+    const balance = request.body.balance;
+    const account_pin = request.body.account_pin;
+
+    // Check Login credential
+    const loginSuccess = await digitalBankingService.checkLoginCredentials(
+      id,
+      account_pin
+    );
+
+    if (!loginSuccess) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const success = await digitalBankingService.depositMoney(id, balance);
+    if (!success) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to withdraw money'
+      );
+    }
+
+    const account = await digitalBankingService.getAccount(id);
+
+    return response.status(200).json({ account });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle withdraw money account request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
 async function transferMoney(request, response, next) {
   try {
     const id = request.params.id;
@@ -379,12 +492,18 @@ async function transferMoney(request, response, next) {
 }
 
 module.exports = {
+  /* PENERENAPAN SOAL NO.1 */
+  getAccounts,
+
+  /* PENERENAPAN SOAL NO.2 */
+  login,
+
+  /* SOAL NO.3 */
   createNewAccount,
-  changePin,
+  getAccount,
   deleteAccount,
+  changePin,
   withdrawMoney,
   depositMoney,
   transferMoney,
-  getAccounts,
-  getAccount,
 };

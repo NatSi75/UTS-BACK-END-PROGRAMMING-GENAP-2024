@@ -25,15 +25,6 @@ async function createEmail(email, hours, minutes) {
 }
 
 /**
- * Delete email in list block
- * @param {string} email - Email
- * @returns {Promise}
- */
-async function deleteEmail(email) {
-  return Block.deleteOne({ email: email });
-}
-
-/**
  * Get account by email to prevent duplicate email
  * @param {string} email - Account Email
  * @returns {Promise}
@@ -42,9 +33,18 @@ async function getEmail(email) {
   return Block.findOne({ email });
 }
 
+/**
+ * Delete email in list block
+ * @param {string} email - Email
+ * @returns {Promise}
+ */
+async function deleteEmail(email) {
+  return Block.deleteOne({ email: email });
+}
+
 module.exports = {
   getUserByEmail,
-  deleteEmail,
   createEmail,
   getEmail,
+  deleteEmail,
 };

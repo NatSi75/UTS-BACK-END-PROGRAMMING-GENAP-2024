@@ -1,6 +1,7 @@
 const { lowerCase, trimStart } = require('lodash');
-const { Account, account } = require('../../../models');
+const { Account, account, Block } = require('../../../models');
 
+/* PENERENAPAN SOAL NO.1 */
 /**
  * Get a list of accounts without search
  * @param {number} page_number - Page Number
@@ -265,6 +266,41 @@ async function getCountAccountsEmail(search_word) {
   }).count();
 }
 
+/* PENERENAPAN SOAL NO.2 */
+/**
+ * Create email with hours & minutes in list block
+ * @param {string} email - Email
+ * @param {number} hours - Hours
+ * @param {number} minutes - Minutes
+ * @returns {Promise}
+ */
+async function createEmail(email, hours, minutes) {
+  return Block.create({
+    email,
+    hours,
+    minutes,
+  });
+}
+
+/**
+ * Get account by email to prevent duplicate email
+ * @param {string} email - Account Email
+ * @returns {Promise}
+ */
+async function getEmail(email) {
+  return Block.findOne({ email });
+}
+
+/**
+ * Delete email in list block
+ * @param {string} email - Email
+ * @returns {Promise}
+ */
+async function deleteEmail(email) {
+  return Block.deleteOne({ email: email });
+}
+
+/* SOAL NO.3 */
 /**
  * Create new account
  * @param {string} account_name - Account Name
@@ -297,21 +333,21 @@ async function deleteAccount(id) {
 }
 
 /**
- * Get account by name to prevent duplicate name
- * @param {string} account_name - Account Name
- * @returns {Promise}
- */
-async function getAccountByName(account_name) {
-  return Account.findOne({ account_name });
-}
-
-/**
  * Get account detail
  * @param {string} id - account ID
  * @returns {Promise}
  */
 async function getAccount(id) {
   return Account.findById(id);
+}
+
+/**
+ * Get account by name to prevent duplicate name
+ * @param {string} account_name - Account Name
+ * @returns {Promise}
+ */
+async function getAccountByName(account_name) {
+  return Account.findOne({ account_name });
 }
 
 /**
@@ -372,17 +408,25 @@ async function changePin(id, account_pin) {
 }
 
 module.exports = {
-  createNewAccount,
-  deleteAccount,
-  getAccountByName,
-  getAccountByEmail,
-  getAccount,
+  /* PENERENAPAN SOAL NO.1 */
   getAccounts,
   getAccountsEmail,
   getAccountsName,
   getCountAccounts,
   getCountAccountsName,
   getCountAccountsEmail,
+
+  /* PENERENAPAN SOAL NO.2 */
+  createEmail,
+  getEmail,
+  deleteEmail,
+
+  /* SOAL NO.3 */
+  createNewAccount,
+  deleteAccount,
+  getAccount,
+  getAccountByName,
+  getAccountByEmail,
   updateAccountById,
   updateAccountByName,
   changePin,

@@ -85,6 +85,13 @@ module.exports = {
     },
   },
 
+  login: {
+    body: {
+      account_email: joi.string().email().required().label('Email'),
+      account_pin: joi.string().required().label('Pin'),
+    },
+  },
+
   pagination: {
     query: {
       page_number: joi.number().integer().positive(),
