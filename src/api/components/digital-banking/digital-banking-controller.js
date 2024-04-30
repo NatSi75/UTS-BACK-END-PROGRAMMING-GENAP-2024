@@ -13,8 +13,8 @@ async function getAccounts(request, response, next) {
   try {
     var accounts;
     // Get request query and set default value
-    const page_number = parseInt(request.query.page_number) || 0;
-    const page_size = parseInt(request.query.page_size) || 0;
+    const page_number = request.query.page_number || 0;
+    const page_size = request.query.page_size || 0;
     var sort = request.query.sort || ':1';
     var search = request.query.search || ':';
 
@@ -25,8 +25,8 @@ async function getAccounts(request, response, next) {
     // Check Format
     // jika ':' hanya ada 1, maka sesuai format
     // jika tidak ada ':' atau lebih dari 1, maka tidak sesuai format
-    const search_format = search.replace(/[a-zA-Z0-9\s]/g, '');
-    const sort_format = sort.replace(/[a-zA-Z0-9\s]/g, '');
+    const search_format = search.replace(/[a-zA-Z0-9_\s]/g, '');
+    const sort_format = sort.replace(/[a-zA-Z0-9_\s]/g, '');
     const search_length = search_format.length;
     const sort_length = sort_format.length;
 
@@ -103,7 +103,7 @@ async function login(request, response, next) {
     var secondsNow = dateTime.getSeconds();
 
     //Waktu account login
-    data = digitalBankingService.attemptLogin();
+    data = digitalBankingService.attemptLogin(false, false);
     var attempt = data[0].temp;
     var hours = data[1].hours;
     var minutes = data[2].minutes;
@@ -118,13 +118,11 @@ async function login(request, response, next) {
         account_pin
       );
 
-      if (!loginSuccess && attempt == 5) {
+      if (loginSuccess) {
+        digitalBankingService.attemptLogin(false, true);
+      } else if (!loginSuccess && attempt == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
-        const successCreateBlock = await digitalBankingService.createBlock(
-          account_email,
-          hours,
-          minutes
-        );
+        await digitalBankingService.createBlock(account_email, hours, minutes);
 
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
@@ -132,6 +130,7 @@ async function login(request, response, next) {
           `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
         );
       } else if (!loginSuccess && attempt < 5) {
+        digitalBankingService.attemptLogin(true, false);
         //Selama attempt kurang dari 5, tidak akan dimasukan ke list block
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
@@ -151,22 +150,21 @@ async function login(request, response, next) {
       ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
         //maka dia boleh login dan menghilangkan dia dari list block
-        const deleteEmail =
-          await digitalBankingService.deleteBlock(account_email);
+        await digitalBankingService.deleteBlock(account_email);
         // Check login credentials
         const loginSuccess = await digitalBankingService.checkLoginCredentials(
           account_email,
           account_pin
         );
 
-        if (!loginSuccess) {
-          if (failedLogin && deleteEmail) {
-            throw errorResponder(
-              errorTypes.INVALID_CREDENTIALS,
-              'Wrong Email or Pin',
-              `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
-            );
-          }
+        if (loginSuccess) {
+          digitalBankingService.attemptLogin(false, true);
+        } else if (!loginSuccess) {
+          throw errorResponder(
+            errorTypes.INVALID_CREDENTIALS,
+            'Wrong Email or Pin',
+            `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
+          );
         }
         return response.status(200).json(loginSuccess);
       } else if (

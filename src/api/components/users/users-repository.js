@@ -30,10 +30,8 @@ async function getUsers(page_number, page_size, sort_split) {
     var results = await User.find()
       .skip((page_number - 1) * page_size)
       .limit(page_size);
-  }
-
-  // Conditional Statement untuk page_number & page_size tidak diisi atau salah satunya
-  if (sortTag == 'name' && page_size == 0 && page_number == 0) {
+  } else if (sortTag == 'name' && page_size == 0 && page_number == 0) {
+    // Conditional Statement untuk page_number & page_size tidak diisi atau salah satunya
     // jika field key dari sort adalah 'name' dan page_number & page_size tidak diisi
     var results = await User.find().sort({
       name: sort_split[1],
@@ -41,6 +39,18 @@ async function getUsers(page_number, page_size, sort_split) {
     });
   } else if (sortTag == 'email' && page_size == 0 && page_number == 0) {
     // jika field key dari sort adalah 'email' dan page_number & page_size tidak diisi
+    var results = await User.find().sort({
+      email: sort_split[1],
+      _id: sort_split[1],
+    });
+  } else if ((sortTag == 'name' && page_size > 0) || page_number > 0) {
+    // jika field key dari sort adalah name dan antara page_number dengan page_size diisi
+    var results = await User.find().sort({
+      name: sort_split[1],
+      _id: sort_split[1],
+    });
+  } else if ((sortTag == 'email' && page_size > 0) || page_number > 0) {
+    // jika field key dari sort adalah email dan antara page_number dengan page_size diisi
     var results = await User.find().sort({
       email: sort_split[1],
       _id: sort_split[1],
@@ -88,37 +98,8 @@ async function getUsersName(page_number, page_size, sort_split, search_word) {
     })
       .skip((page_number - 1) * page_size)
       .limit(page_size);
-  }
-
-  // Conditional Statement untuk salah satu dari page_number dan page_size yang tidak diisi
-  if (sortTag == 'name' && page_size == 0 && page_number > 0) {
-    // jika field key dari sort adalah 'name'
-    var results = await User.find({
-      name: { $regex: trimStart(search_word[1]) },
-    }).sort({ name: sort_split[1], _id: sort_split[1] });
-  } else if (sortTag == 'email' && page_size == 0 && page_number > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await User.find({
-      name: { $regex: trimStart(search_word[1]) },
-    }).sort({ email: sort_split[1], _id: sort_split[1] });
-  } else if (sortTag == 'name' && page_number == 0 && page_size > 0) {
-    // jika field key dari sort adalah 'name'
-    var results = await User.find({
-      name: { $regex: trimStart(search_word[1]) },
-    })
-      .sort({ name: sort_split[1], _id: sort_split[1] })
-      .limit(page_size);
-  } else if (sortTag == 'email' && page_number == 0 && page_size > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await User.find({
-      name: { $regex: trimStart(search_word[1]) },
-    })
-      .sort({ email: sort_split[1], _id: sort_split[1] })
-      .limit(page_size);
-  }
-
-  // Conditional Statement untuk page_number & page_size tidak diisi
-  if (sortTag == 'name' && page_size == 0 && page_number == 0) {
+  } else if (sortTag == 'name' && page_size == 0 && page_number == 0) {
+    // Conditional Statement untuk page_number & page_size tidak diisi
     // jika field key dari sort adalah 'name'
     var results = await User.find({
       name: { $regex: trimStart(search_word[1]) },
@@ -128,12 +109,23 @@ async function getUsersName(page_number, page_size, sort_split, search_word) {
     var results = await User.find({
       name: { $regex: trimStart(search_word[1]) },
     }).sort({ email: sort_split[1], _id: sort_split[1] });
-  } else {
-    // jika hanya search yang diisi
-    // Jika hanya search dan page_size diisi
-    // jika hanya search dan page_number yang diisi
+  } else if ((sortTag == 'name' && page_size > 0) || page_number > 0) {
+    // Conditional Statement untuk salah satu dari page_number dan page_size yang tidak diisi
+    // jika field key dari sort adalah 'name'
     var results = await User.find({
-      name: { $regex: trimStart(trimStart(search_word[1])) },
+      name: { $regex: trimStart(search_word[1]) },
+    }).sort({ name: sort_split[1], _id: sort_split[1] });
+  } else if ((sortTag == 'email' && page_size > 0) || page_number > 0) {
+    // jika field key dari sort adalah 'email'
+    var results = await User.find({
+      name: { $regex: trimStart(search_word[1]) },
+    }).sort({ email: sort_split[1], _id: sort_split[1] });
+  } else {
+    // jika hanya search yang diisi (sort & page_number & page_size tidak diisi)
+    // Jika hanya search dan page_size diisi (sort & page number tidak diisi)
+    // jika hanya search dan page_number yang diisi (sort & page size tidak diisi)
+    var results = await User.find({
+      name: { $regex: trimStart(search_word[1]) },
     });
   }
   return results;
@@ -170,41 +162,12 @@ async function getUsersEmail(page_number, page_size, sort_split, search_word) {
       .limit(page_size);
   } else if (sortTag == '' && page_size > 0 && page_number > 0) {
     var results = await User.find({
-      email: { $regex: trimStart(trimStart(search_word[1])) },
+      email: { $regex: trimStart(search_word[1]) },
     })
       .skip((page_number - 1) * page_size)
       .limit(page_size);
-  }
-
-  // Conditional Statement untuk salah satu dari page_number dan page_size yang tidak diisi
-  if (sortTag == 'name' && page_size == 0 && page_number > 0) {
-    // jika field key dari sort adalah 'name'
-    var results = await User.find({
-      email: { $regex: trimStart(search_word[1]) },
-    }).sort({ name: sort_split[1], _id: sort_split[1] });
-  } else if (sortTag == 'email' && page_size == 0 && page_number > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await User.find({
-      email: { $regex: trimStart(search_word[1]) },
-    }).sort({ email: sort_split[1], _id: sort_split[1] });
-  } else if (sortTag == 'name' && page_number == 0 && page_size > 0) {
-    // jika field key dari sort adalah 'name'
-    var results = await User.find({
-      email: { $regex: trimStart(search_word[1]) },
-    })
-      .sort({ name: sort_split[1], _id: sort_split[1] })
-      .limit(page_size);
-  } else if (sortTag == 'email' && page_number == 0 && page_size > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await User.find({
-      email: { $regex: trimStart(search_word[1]) },
-    })
-      .sort({ email: sort_split[1], _id: sort_split[1] })
-      .limit(page_size);
-  }
-
-  // Conditional Statement untuk page_number & page_size tidak diisi
-  if (sortTag == 'name' && page_size == 0 && page_number == 0) {
+  } else if (sortTag == 'name' && page_size == 0 && page_number == 0) {
+    // Conditional Statement untuk page_number & page_size tidak diisi
     // jika field key dari sort adalah 'name'
     var results = await User.find({
       email: { $regex: trimStart(search_word[1]) },
@@ -214,12 +177,23 @@ async function getUsersEmail(page_number, page_size, sort_split, search_word) {
     var results = await User.find({
       email: { $regex: trimStart(search_word[1]) },
     }).sort({ email: sort_split[1], _id: sort_split[1] });
-  } else {
-    // jika hanya search yang diisi
-    // Jika hanya search dan page_size diisi
-    // jika hanya search dan page_number yang diisi
+  } else if ((sortTag == 'name' && page_size > 0) || page_number > 0) {
+    // Conditional Statement untuk salah satu dari page_number dan page_size yang tidak diisi
+    // jika field key dari sort adalah 'name'
     var results = await User.find({
-      email: { $regex: trimStart(trimStart(search_word[1])) },
+      email: { $regex: trimStart(search_word[1]) },
+    }).sort({ name: sort_split[1], _id: sort_split[1] });
+  } else if ((sortTag == 'email' && page_size > 0) || page_number > 0) {
+    // jika field key dari sort adalah 'email'
+    var results = await User.find({
+      email: { $regex: trimStart(search_word[1]) },
+    }).sort({ email: sort_split[1], _id: sort_split[1] });
+  } else {
+    // jika hanya search yang diisi (sort & page_number & page_size tidak diisi)
+    // Jika hanya search dan page_size diisi (sort & page number tidak diisi)
+    // jika hanya search dan page_number yang diisi (sort & page size tidak diisi)
+    var results = await User.find({
+      email: { $regex: trimStart(search_word[1]) },
     });
   }
   return results;

@@ -22,7 +22,7 @@ async function login(request, response, next) {
     var secondsNow = dateTime.getSeconds();
 
     //Waktu user login
-    data = authenticationServices.attemptLogin();
+    data = authenticationServices.attemptLogin(false, false);
     var attempt = data[0].temp;
     var hours = data[1].hours;
     var minutes = data[2].minutes;
@@ -36,13 +36,11 @@ async function login(request, response, next) {
         password
       );
 
-      if (!loginSuccess && attempt == 5) {
+      if (loginSuccess) {
+        authenticationServices.attemptLogin(false, true);
+      } else if (!loginSuccess && attempt == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
-        const successCreateBlock = await authenticationServices.createBlock(
-          email,
-          hours,
-          minutes
-        );
+        await authenticationServices.createBlock(email, hours, minutes);
 
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
@@ -50,6 +48,7 @@ async function login(request, response, next) {
           `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] User ${email} gagal login. Attempt = ${attempt}`
         );
       } else if (!loginSuccess && attempt < 5) {
+        authenticationServices.attemptLogin(true, false);
         //Selama attempt kurang dari 5, tidak akan dimasukan ke list block
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
@@ -66,21 +65,21 @@ async function login(request, response, next) {
       if (detailUser.minutes <= minutesNow && detailUser.hours <= hoursNow) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
         //maka dia boleh login dan menghilangkan dia dari list block
-        const deleteEmail = await authenticationServices.deleteBlock(email);
+        await authenticationServices.deleteBlock(email);
         // Check login credentials
         const loginSuccess = await authenticationServices.checkLoginCredentials(
           email,
           password
         );
 
-        if (!loginSuccess) {
-          if (failedLogin && deleteEmail) {
-            throw errorResponder(
-              errorTypes.INVALID_CREDENTIALS,
-              'Wrong email or password',
-              `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] User ${email} gagal login. Attempt = ${attempt}`
-            );
-          }
+        if (loginSuccess) {
+          authenticationServices.attemptLogin(false, true);
+        } else if (!loginSuccess) {
+          throw errorResponder(
+            errorTypes.INVALID_CREDENTIALS,
+            'Wrong email or password',
+            `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] User ${email} gagal login. Attempt = ${attempt}`
+          );
         }
         return response.status(200).json(loginSuccess);
       } else if (

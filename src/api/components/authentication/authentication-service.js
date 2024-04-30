@@ -56,15 +56,20 @@ async function deleteBlock(email) {
 
 /**
  * Attempt for login.
+ * @param {boolean} condition_addition -Condition
+ * @param {boolean} condition_reset -Condition Reset
  * @returns {Array}
  */
-function attemptLogin() {
+function attemptLogin(condition_addition, condition_reset) {
+  if (condition_reset == true) {
+    iterator = 1;
+  }
   var temp = iterator;
   var dateTime = new Date();
   var hours = dateTime.getHours();
   var minutes = dateTime.getMinutes();
   if (iterator == 5) {
-    iterator = 0;
+    iterator = 1;
     minutes = dateTime.getMinutes() + 30;
     if (minutes > 60) {
       hours = hours + 1;
@@ -72,7 +77,10 @@ function attemptLogin() {
     }
   }
 
-  iterator += 1;
+  if (condition_addition == true) {
+    iterator += 1;
+  }
+
   const data = [];
   data.push(
     {

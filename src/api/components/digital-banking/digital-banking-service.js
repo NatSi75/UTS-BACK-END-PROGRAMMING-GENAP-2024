@@ -1,7 +1,7 @@
 const digitalBankingRepository = require('./digital-banking-repository');
 const { hashPin, pinMatched } = require('../../../utils/pin');
 const { generateTokenAccount } = require('../../../utils/session-token');
-const { lowerCase } = require('lodash');
+const { lowerCase, floor } = require('lodash');
 
 /* PENERENAPAN SOAL NO.1 */
 /**
@@ -39,11 +39,8 @@ async function getAccounts(
     sort_split[1] = -1;
   }
 
-  // change field name to lower case and no space
-  var search_filter = lowerCase(search_split_filter[0]).replace(/\s/g, '');
-
   // conditional field name
-  if (search_filter == 'account_name') {
+  if (search_split_filter[0] == 'account_name') {
     checkName = true;
     accounts = await digitalBankingRepository.getAccountsName(
       page_number,
@@ -51,7 +48,7 @@ async function getAccounts(
       sort_split,
       search_word
     );
-  } else if (search_filter == 'account_email') {
+  } else if (search_split_filter[0] == 'account_email') {
     checkEmail = true;
     accounts = await digitalBankingRepository.getAccountsEmail(
       page_number,
@@ -85,15 +82,11 @@ async function getAccounts(
     var total_pages = floor(totalAccountName / page_size) + 1;
   } else if (page_size > page_number && checkEmail == true) {
     var total_pages = floor(totalAccountEmail / page_size) + 1;
-  }
-
-  if (page_size < page_number && checkName == true) {
+  } else if (page_size < page_number && checkName == true) {
     var total_pages = floor(totalAccountName / page_size) + 1;
   } else if (page_size < page_number && checkEmail == true) {
     var total_pages = floor(totalAccountEmail / page_size) + 1;
-  }
-
-  if (page_number > page_size) {
+  } else if (page_number > page_size) {
     var total_pages = floor(totalDocuments / page_size) + 1;
   } else if (page_number < page_size) {
     var total_pages = floor(totalDocuments / page_size) + 1;
@@ -242,23 +235,30 @@ async function getAccounts(
 var iterator = 1;
 /**
  * Attempt for login.
+ * @param {boolean} condition_addition -Condition
+ * @param {boolean} condition_reset -Condition Reset
  * @returns {Array}
  */
-function attemptLogin() {
+function attemptLogin(condition_addition, condition_reset) {
+  if (condition_reset == true) {
+    iterator = 1;
+  }
   var temp = iterator;
   var dateTime = new Date();
   var hours = dateTime.getHours();
   var minutes = dateTime.getMinutes();
   if (iterator == 5) {
-    iterator = 0;
+    iterator = 1;
     minutes = dateTime.getMinutes() + 30;
     if (minutes > 60) {
       hours = hours + 1;
       minutes = minutes - 60;
     }
   }
+  if (condition_addition == true) {
+    iterator += 1;
+  }
 
-  iterator += 1;
   const data = [];
   data.push(
     {

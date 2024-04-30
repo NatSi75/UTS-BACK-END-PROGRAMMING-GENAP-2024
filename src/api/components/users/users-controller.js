@@ -12,8 +12,8 @@ async function getUsers(request, response, next) {
   try {
     var users;
     // Get request query and set default value
-    const page_number = parseInt(request.query.page_number) || 0;
-    const page_size = parseInt(request.query.page_size) || 0;
+    const page_number = request.query.page_number || 0;
+    const page_size = request.query.page_size || 0;
     var sort = request.query.sort || ':1';
     var search = request.query.search || ':';
 

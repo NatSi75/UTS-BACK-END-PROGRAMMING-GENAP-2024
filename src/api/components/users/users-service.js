@@ -77,15 +77,11 @@ async function getUsers(
     var total_pages = floor(totalUserName / page_size) + 1;
   } else if (page_size > page_number && checkEmail == true) {
     var total_pages = floor(totalUserEmail / page_size) + 1;
-  }
-
-  if (page_size < page_number && checkName == true) {
+  } else if (page_size < page_number && checkName == true) {
     var total_pages = floor(totalUserName / page_size) + 1;
   } else if (page_size < page_number && checkEmail == true) {
     var total_pages = floor(totalUserEmail / page_size) + 1;
-  }
-
-  if (page_number > page_size) {
+  } else if (page_number > page_size) {
     var total_pages = floor(totalDocuments / page_size) + 1;
   } else if (page_number < page_size) {
     var total_pages = floor(totalDocuments / page_size) + 1;
