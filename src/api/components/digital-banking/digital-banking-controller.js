@@ -11,68 +11,33 @@ const { errorResponder, errorTypes } = require('../../../core/errors');
  */
 async function getAccounts(request, response, next) {
   try {
-    var accounts;
-    // Get request query and set default value
-    const page_number = request.query.page_number || 0;
-    const page_size = request.query.page_size || 0;
-    var sort = request.query.sort || ':1';
-    var search = request.query.search || ':';
-
-    // No space
-    var sort_nospace = sort.replace(/\s/g, '');
-    var search_nospace = search.replace(/\s/g, '');
+    // Get request query
+    var { page_number, page_size, sort, search } = request.query;
 
     // Check Format
     // jika ':' hanya ada 1, maka sesuai format
     // jika tidak ada ':' atau lebih dari 1, maka tidak sesuai format
-    const search_format = search.replace(/[a-zA-Z0-9_\s]/g, '');
-    const sort_format = sort.replace(/[a-zA-Z0-9_\s]/g, '');
-    const search_length = search_format.length;
-    const sort_length = sort_format.length;
+    const search_length = search.replace(/[a-zA-Z0-9_\s]/g, '').length;
+    const sort_length = sort.replace(/[a-zA-Z0-9_\s]/g, '').length;
 
-    if (search_length == 1 && sort_length == 1) {
-      // Jika keduanya sesuai format
-      accounts = await digitalBankingService.getAccounts(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
-    } else if (search_length > 1 && sort_length > 1) {
+    if (search_length > 1 && sort_length > 1) {
       // Jika keduanya tidak sesuai format
-      sort_nospace = ':1';
       search = ':';
-      search_nospace = ':';
-      accounts = await digitalBankingService.getAccounts(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
+      sort = ':1';
     } else if (search_length > 1) {
       // Jika search sesuai format
       search = ':';
-      search_nospace = ':';
-      accounts = await digitalBankingService.getAccounts(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
-    } else {
+    } else if (sort_length > 1) {
       // Jika sort sesuai format
-      sort_nospace = ':1';
-      accounts = await digitalBankingService.getAccounts(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
+      sort = ':1';
     }
+
+    const accounts = await digitalBankingService.getAccounts(
+      page_number,
+      page_size,
+      sort,
+      search
+    );
 
     return response.status(200).json(accounts);
   } catch (error) {
@@ -90,23 +55,11 @@ async function getAccounts(request, response, next) {
  */
 async function login(request, response, next) {
   try {
-    const account_email = request.body.account_email;
-    const account_pin = request.body.account_pin;
-
+    const { account_email, account_pin } = request.body;
     //Waktu sekarang
-    var dateTime = new Date();
-    var yearNow = dateTime.getFullYear();
-    var monthNow = dateTime.getMonth() + 1;
-    var dateNow = dateTime.getDate();
-    var hoursNow = dateTime.getHours();
-    var minutesNow = dateTime.getMinutes();
-    var secondsNow = dateTime.getSeconds();
-
+    const dateNow = digitalBankingService.getDate();
     //Waktu account login
-    data = digitalBankingService.attemptLogin(false, false);
-    var attempt = data[0].temp;
-    var hours = data[1].hours;
-    var minutes = data[2].minutes;
+    const dateLogin = digitalBankingService.attemptLogin(false, false);
 
     const successCheckBlock =
       await digitalBankingService.checkBlock(account_email);
@@ -120,22 +73,26 @@ async function login(request, response, next) {
 
       if (loginSuccess) {
         digitalBankingService.attemptLogin(false, true);
-      } else if (!loginSuccess && attempt == 5) {
+      } else if (!loginSuccess && dateLogin[0].temp == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
-        await digitalBankingService.createBlock(account_email, hours, minutes);
+        await digitalBankingService.createBlock(
+          account_email,
+          dateLogin[1].hours,
+          dateLogin[2].minutes
+        );
 
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
           `Wrong Email or Pin`,
-          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
+          `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, false)}`
         );
-      } else if (!loginSuccess && attempt < 5) {
+      } else if (!loginSuccess && dateLogin[0].temp < 5) {
         digitalBankingService.attemptLogin(true, false);
         //Selama attempt kurang dari 5, tidak akan dimasukan ke list block
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
           `Wrong Email or Pin`,
-          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
+          `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, false)}`
         );
       }
 
@@ -145,8 +102,8 @@ async function login(request, response, next) {
       const detailAccount =
         await digitalBankingService.getDetailEmailBlock(account_email);
       if (
-        detailAccount.minutes <= minutesNow &&
-        detailAccount.hours <= hoursNow
+        detailAccount.minutes <= dateNow[4].minutes &&
+        detailAccount.hours <= dateNow[3].hours
       ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
         //maka dia boleh login dan menghilangkan dia dari list block
@@ -163,24 +120,23 @@ async function login(request, response, next) {
           throw errorResponder(
             errorTypes.INVALID_CREDENTIALS,
             'Wrong Email or Pin',
-            `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} gagal login. Attempt = ${attempt}`
+            `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, false)}`
           );
         }
         return response.status(200).json(loginSuccess);
       } else if (
-        detailAccount.minutes > minutesNow ||
-        detailAccount.hours > hoursNow
+        detailAccount.minutes > dateNow[4].minutes ||
+        detailAccount.hours > dateNow[3].hours
       ) {
         //Jika waktu menunggu account lebih besar dari waktu sekarang
         //maka dia tidak boleh login dan harus menunggu
         var waitingTime =
-          (detailAccount.hours - hoursNow) * 60 +
-          detailAccount.minutes -
-          minutesNow;
+          (detailAccount.hours - dateNow[3].hours) * 60 +
+          (detailAccount.minutes - dateNow[4].minutes);
         throw errorResponder(
           errorTypes.FORBIDDEN,
           `Too many failed login attempts, Waiting time ${waitingTime} minutes`,
-          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] Account ${account_email} mencoba login.Namun karena mendapat error 403 karena telah melebihi batas limit.`
+          `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, true)}`
         );
       }
     }
@@ -199,11 +155,13 @@ async function login(request, response, next) {
  */
 async function createNewAccount(request, response, next) {
   try {
-    const account_name = request.body.account_name;
-    const account_email = request.body.account_email;
-    const balance = request.body.balance;
-    const account_pin = request.body.account_pin;
-    const account_pin_confirm = request.body.account_pin_confirm;
+    const {
+      account_name,
+      account_email,
+      balance,
+      account_pin,
+      account_pin_confirm,
+    } = request.body;
 
     // Check confirmation password
     if (account_pin !== account_pin_confirm) {
@@ -264,8 +222,8 @@ async function getAccount(request, response, next) {
     const id = request.params.id;
     const account_pin = request.body.account_pin;
 
-    // Check Login credential
-    const loginSuccess = await digitalBankingService.checkLoginCredentials(
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
       id,
       account_pin
     );
@@ -299,8 +257,8 @@ async function deleteAccount(request, response, next) {
     const id = request.params.id;
     const account_pin = request.body.account_pin;
 
-    // Check Login credential
-    const loginSuccess = await digitalBankingService.checkLoginCredentials(
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
       id,
       account_pin
     );
@@ -333,9 +291,8 @@ async function deleteAccount(request, response, next) {
 async function changePin(request, response, next) {
   try {
     const id = request.params.id;
-    const account_pin = request.body.account_pin;
-    const account_pin_new = request.body.account_pin_new;
-    const account_pin_new_confirm = request.body.account_pin_new_confirm;
+    const { account_pin, account_pin_new, account_pin_new_confirm } =
+      request.body;
 
     // Check pin confirmation
     if (account_pin_new !== account_pin_new_confirm) {
@@ -378,11 +335,10 @@ async function changePin(request, response, next) {
 async function withdrawMoney(request, response, next) {
   try {
     const id = request.params.id;
-    const balance = request.body.balance;
-    const account_pin = request.body.account_pin;
+    const { balance, account_pin } = request.body;
 
-    // Check Login credential
-    const loginSuccess = await digitalBankingService.checkLoginCredentials(
+    /// Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
       id,
       account_pin
     );
@@ -417,11 +373,10 @@ async function withdrawMoney(request, response, next) {
 async function depositMoney(request, response, next) {
   try {
     const id = request.params.id;
-    const balance = request.body.balance;
-    const account_pin = request.body.account_pin;
+    const { balance, account_pin } = request.body;
 
-    // Check Login credential
-    const loginSuccess = await digitalBankingService.checkLoginCredentials(
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
       id,
       account_pin
     );
@@ -456,12 +411,10 @@ async function depositMoney(request, response, next) {
 async function transferMoney(request, response, next) {
   try {
     const id = request.params.id;
-    const account_name_receiver = request.body.account_name_receiver;
-    const balance = request.body.balance;
-    const account_pin = request.body.account_pin;
+    const { account_name_receiver, balance, account_pin } = request.body;
 
-    // Check Login credential
-    const loginSuccess = await digitalBankingService.checkLoginCredentials(
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
       id,
       account_pin
     );

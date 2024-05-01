@@ -51,10 +51,10 @@ module.exports = {
 
   pagination: {
     query: {
-      page_number: joi.number().integer().positive(),
-      page_size: joi.number().integer().positive(),
-      sort: joi.allow(),
-      search: joi.allow(),
+      page_number: joi.number().integer().positive().default(0),
+      page_size: joi.number().integer().positive().default(0),
+      sort: joi.string().default(':1'),
+      search: joi.string().default(':'),
     },
   },
 };

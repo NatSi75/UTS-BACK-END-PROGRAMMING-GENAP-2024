@@ -10,68 +10,33 @@ const { errorResponder, errorTypes } = require('../../../core/errors');
  */
 async function getUsers(request, response, next) {
   try {
-    var users;
-    // Get request query and set default value
-    const page_number = request.query.page_number || 0;
-    const page_size = request.query.page_size || 0;
-    var sort = request.query.sort || ':1';
-    var search = request.query.search || ':';
-
-    // No space
-    var sort_nospace = sort.replace(/\s/g, '');
-    var search_nospace = search.replace(/\s/g, '');
+    // Get request query
+    var { page_number, page_size, sort, search } = request.query;
 
     // Check Format
     // jika ':' hanya ada 1, maka sesuai format
     // jika tidak ada ':' atau lebih dari 1, maka tidak sesuai format
-    const search_format = search.replace(/[a-zA-Z0-9\s]/g, '');
-    const sort_format = sort.replace(/[a-zA-Z0-9\s]/g, '');
-    const search_length = search_format.length;
-    const sort_length = sort_format.length;
+    const search_length = search.replace(/[a-zA-Z0-9_\s]/g, '').length;
+    const sort_length = sort.replace(/[a-zA-Z0-9_\s]/g, '').length;
 
-    if (search_length == 1 && sort_length == 1) {
-      // Jika keduanya sesuai format
-      users = await usersService.getUsers(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
-    } else if (search_length > 1 && sort_length > 1) {
+    if (search_length > 1 && sort_length > 1) {
       // Jika keduanya tidak sesuai format
-      sort_nospace = ':1';
       search = ':';
-      search_nospace = ':';
-      users = await usersService.getUsers(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
+      sort = ':1';
     } else if (search_length > 1) {
       // Jika search sesuai format
       search = ':';
-      search_nospace = ':';
-      users = await usersService.getUsers(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
-    } else {
+    } else if (sort_length > 1) {
       // Jika sort sesuai format
-      sort_nospace = ':1';
-      users = await usersService.getUsers(
-        page_number,
-        page_size,
-        sort_nospace,
-        search,
-        search_nospace
-      );
+      sort = ':1';
     }
+
+    const users = await usersService.getUsers(
+      page_number,
+      page_size,
+      sort,
+      search
+    );
 
     return response.status(200).json(users);
   } catch (error) {

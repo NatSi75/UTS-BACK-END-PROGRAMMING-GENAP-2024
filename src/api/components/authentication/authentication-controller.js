@@ -11,21 +11,10 @@ const authenticationServices = require('./authentication-service');
 async function login(request, response, next) {
   try {
     const { email, password } = request.body;
-
     //Waktu sekarang
-    var dateTime = new Date();
-    var yearNow = dateTime.getFullYear();
-    var monthNow = dateTime.getMonth() + 1;
-    var dateNow = dateTime.getDate();
-    var hoursNow = dateTime.getHours();
-    var minutesNow = dateTime.getMinutes();
-    var secondsNow = dateTime.getSeconds();
-
-    //Waktu user login
-    data = authenticationServices.attemptLogin(false, false);
-    var attempt = data[0].temp;
-    var hours = data[1].hours;
-    var minutes = data[2].minutes;
+    const dateNow = authenticationServices.getDate();
+    //Waktu account login
+    const dateLogin = authenticationServices.attemptLogin(false, false);
 
     const successCheckBlock = await authenticationServices.checkBlock(email);
     if (successCheckBlock == false) {
@@ -38,22 +27,26 @@ async function login(request, response, next) {
 
       if (loginSuccess) {
         authenticationServices.attemptLogin(false, true);
-      } else if (!loginSuccess && attempt == 5) {
+      } else if (!loginSuccess && dateLogin[0].temp == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
-        await authenticationServices.createBlock(email, hours, minutes);
+        await authenticationServices.createBlock(
+          email,
+          dateLogin[1].hours,
+          dateLogin[2].minutes
+        );
 
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
           `Wrong Email or Password`,
-          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] User ${email} gagal login. Attempt = ${attempt}`
+          `${authenticationServices.stringErrorLogin(email, dateLogin[0].temp, false)}`
         );
-      } else if (!loginSuccess && attempt < 5) {
+      } else if (!loginSuccess && dateLogin[0].temp < 5) {
         authenticationServices.attemptLogin(true, false);
         //Selama attempt kurang dari 5, tidak akan dimasukan ke list block
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
           `Wrong Email or Password`,
-          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] User ${email} gagal login. Attempt = ${attempt}`
+          `${authenticationServices.stringErrorLogin(email, dateLogin[0].temp, false)}`
         );
       }
 
@@ -62,7 +55,10 @@ async function login(request, response, next) {
       //Jika email user ada di list block
       const detailUser =
         await authenticationServices.getDetailEmailBlock(email);
-      if (detailUser.minutes <= minutesNow && detailUser.hours <= hoursNow) {
+      if (
+        detailUser.minutes <= dateNow[4].minutes &&
+        detailUser.hours <= dateNow[3].hours
+      ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
         //maka dia boleh login dan menghilangkan dia dari list block
         await authenticationServices.deleteBlock(email);
@@ -78,22 +74,24 @@ async function login(request, response, next) {
           throw errorResponder(
             errorTypes.INVALID_CREDENTIALS,
             'Wrong email or password',
-            `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] User ${email} gagal login. Attempt = ${attempt}`
+            `${authenticationServices.stringErrorLogin(email, dateLogin[0].temp, false)}`
           );
         }
         return response.status(200).json(loginSuccess);
       } else if (
-        detailUser.minutes > minutesNow ||
-        detailUser.hours > hoursNow
+        detailUser.minutes > dateNow[4].minutes ||
+        detailUser.hours > dateNow[3].hours
       ) {
         //Jika waktu menunggu user lebih besar dari waktu sekarang
         //maka dia tidak boleh login dan harus menunggu
         var waitingTime =
-          (detailUser.hours - hoursNow) * 60 + detailUser.minutes - minutesNow;
+          (detailUser.hours - dateNow[3].hours) * 60 +
+          detailUser.minutes -
+          dateNow[4].minutes;
         throw errorResponder(
           errorTypes.FORBIDDEN,
           `Too many failed login attempts, Waiting time ${waitingTime} minutes`,
-          `[${yearNow}-${monthNow}-${dateNow} ${hoursNow}:${minutesNow}:${secondsNow}] User ${email} mencoba login.Namun karena mendapat error 403 karena telah melebihi batas limit.`
+          `${authenticationServices.stringErrorLogin(email, dateLogin[0].temp, true)}`
         );
       }
     }

@@ -1,35 +1,50 @@
 const joi = require('joi');
 const { joiPasswordExtendCore } = require('joi-password');
-const { account_pin } = require('../../../models/accounts-schema');
 const joiPassword = joi.extend(joiPasswordExtendCore);
 
 module.exports = {
   createNewAccount: {
     body: {
-      account_name: joi.string(),
-      account_email: joi.string(),
-      balance: joi.number(),
+      account_name: joi
+        .string()
+        .min(6)
+        .max(32)
+        .required()
+        .label('Account Name'),
+      account_email: joi.string().email().required().label('Account Email'),
+      balance: joi
+        .number()
+        .integer()
+        .positive()
+        .greater(99999)
+        .required()
+        .label('Account Balance'),
       account_pin: joiPassword
         .string()
         .noWhiteSpaces()
         .min(6)
         .max(6)
         .required()
-        .label('Pin'),
+        .label('Account Pin'),
       account_pin_confirm: joi.string().required().label('Pin Confirmations'),
     },
   },
   //For route withdrawMoney & depositMoney
   Money: {
     body: {
-      balance: joi.number(),
+      balance: joi
+        .number()
+        .integer()
+        .positive()
+        .required()
+        .label('Account Balance'),
       account_pin: joiPassword
         .string()
         .noWhiteSpaces()
         .min(6)
         .max(6)
         .required()
-        .label('Pin'),
+        .label('Account Pin'),
     },
   },
   //For route check balance & delete account
@@ -41,7 +56,7 @@ module.exports = {
         .min(6)
         .max(6)
         .required()
-        .label('Pin'),
+        .label('Account Pin'),
     },
   },
 
@@ -53,51 +68,67 @@ module.exports = {
         .min(6)
         .max(6)
         .required()
-        .label('Pin'),
+        .label('Account Pin'),
       account_pin_new: joiPassword
         .string()
         .noWhiteSpaces()
         .min(6)
         .max(6)
         .required()
-        .label('New Pin'),
+        .label('Account New Pin'),
       account_pin_new_confirm: joiPassword
         .string()
         .noWhiteSpaces()
         .min(6)
         .max(6)
         .required()
-        .label('New pin confirmation'),
+        .label('Account New pin confirmation'),
     },
   },
 
   transferMoney: {
     body: {
-      account_name_receiver: joi.string(),
-      balance: joi.number(),
+      account_name_receiver: joi
+        .string()
+        .min(6)
+        .max(32)
+        .required()
+        .label('Account Name'),
+      balance: joi
+        .number()
+        .integer()
+        .positive()
+        .required()
+        .label('Account Balance'),
       account_pin: joiPassword
         .string()
         .noWhiteSpaces()
         .min(6)
         .max(6)
         .required()
-        .label('Pin'),
+        .label('Account Pin'),
     },
   },
 
   login: {
     body: {
-      account_email: joi.string().email().required().label('Email'),
-      account_pin: joi.string().required().label('Pin'),
+      account_email: joi.string().email().required().label('Account Email'),
+      account_pin: joiPassword
+        .string()
+        .noWhiteSpaces()
+        .min(6)
+        .max(6)
+        .required()
+        .label('Account Pin'),
     },
   },
 
   pagination: {
     query: {
-      page_number: joi.number().integer().positive(),
-      page_size: joi.number().integer().positive(),
-      sort: joi.allow(),
-      search: joi.allow(),
+      page_number: joi.number().integer().positive().default(0),
+      page_size: joi.number().integer().positive().default(0),
+      sort: joi.string().default(':1'),
+      search: joi.string().default(':'),
     },
   },
 };

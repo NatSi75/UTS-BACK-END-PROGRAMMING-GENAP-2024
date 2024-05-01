@@ -6,18 +6,11 @@ const { lowerCase, floor } = require('lodash');
  * Get list of users
  * @param {number} page_number - Page Number
  * @param {number} page_size - Page Size
- * @param {string} sort_nospace - Sort No Space
+ * @param {string} sort - Sort
  * @param {string} search - Search
- * @param {string} search_nospace - Search No Space
  * @returns {Array}
  */
-async function getUsers(
-  page_number,
-  page_size,
-  sort_nospace,
-  search,
-  search_nospace
-) {
+async function getUsers(page_number, page_size, sort, search) {
   var users;
   var tempPage_number = page_number;
 
@@ -26,9 +19,8 @@ async function getUsers(
   var checkEmail = false;
 
   // 'email:test' to ['email','test']
-  var sort_split = sort_nospace.split(':');
-  var search_word = search.split(':');
-  var search_split_filter = search_nospace.split(':');
+  var sort_split = sort.split(':');
+  var search_split = search.split(':');
 
   // change asc to 1 or desc to -1
   if (sort_split[1] == 'asc') {
@@ -38,16 +30,16 @@ async function getUsers(
   }
 
   // change field name to lower case and no space
-  var search_filter = lowerCase(search_split_filter[0]).replace(/\s/g, '');
+  var search_filter = lowerCase(search_split[0]).replace(/\s/g, '');
 
   // conditional field name
   if (search_filter == 'name') {
     checkName = true;
-    var users = await usersRepository.getUsersName(
+    users = await usersRepository.getUsersName(
       page_number,
       page_size,
       sort_split,
-      search_word
+      search_split
     );
   } else if (search_filter == 'email') {
     checkEmail = true;
@@ -55,7 +47,7 @@ async function getUsers(
       page_number,
       page_size,
       sort_split,
-      search_word
+      search_split
     );
   } else {
     // jika search tidak diisi
@@ -64,8 +56,8 @@ async function getUsers(
 
   // Get total user (document) in collection 'users'
   const totalDocuments = await usersRepository.getCountUsers();
-  const totalUserName = await usersRepository.getCountUsersName(search_word);
-  const totalUserEmail = await usersRepository.getCountUsersEmail(search_word);
+  const totalUserName = await usersRepository.getCountUsersName(search_split);
+  const totalUserEmail = await usersRepository.getCountUsersEmail(search_split);
 
   // Create variable and set value total pages
   if (

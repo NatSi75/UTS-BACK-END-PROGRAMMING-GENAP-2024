@@ -1,25 +1,18 @@
 const digitalBankingRepository = require('./digital-banking-repository');
 const { hashPin, pinMatched } = require('../../../utils/pin');
 const { generateTokenAccount } = require('../../../utils/session-token');
-const { lowerCase, floor } = require('lodash');
+const { floor } = require('lodash');
 
 /* PENERENAPAN SOAL NO.1 */
 /**
  * Get list of accounts
  * @param {number} page_number - Page Number
  * @param {number} page_size - Page Size
- * @param {string} sort_nospace - Sort No Space
+ * @param {string} sort - Sort
  * @param {string} search - Search
- * @param {string} search_nospace - Search No Space
- * @returns {Array}
+ * @returns {Object}
  */
-async function getAccounts(
-  page_number,
-  page_size,
-  sort_nospace,
-  search,
-  search_nospace
-) {
+async function getAccounts(page_number, page_size, sort, search) {
   var accounts;
   var tempPage_number = page_number;
 
@@ -28,9 +21,8 @@ async function getAccounts(
   var checkEmail = false;
 
   // 'email:test' to ['email','test']
-  var sort_split = sort_nospace.split(':');
-  var search_word = search.split(':');
-  var search_split_filter = search_nospace.split(':');
+  var sort_split = sort.split(':');
+  var search_split = search.split(':');
 
   // change asc to 1 or desc to -1
   if (sort_split[1] == 'asc') {
@@ -40,21 +32,21 @@ async function getAccounts(
   }
 
   // conditional field name
-  if (search_split_filter[0] == 'account_name') {
+  if (search_word[0] == 'account_name') {
     checkName = true;
     accounts = await digitalBankingRepository.getAccountsName(
       page_number,
       page_size,
       sort_split,
-      search_word
+      search_split
     );
-  } else if (search_split_filter[0] == 'account_email') {
+  } else if (search_word[0] == 'account_email') {
     checkEmail = true;
     accounts = await digitalBankingRepository.getAccountsEmail(
       page_number,
       page_size,
       sort_split,
-      search_word
+      search_split
     );
   } else {
     // jika search tidak diisi
@@ -68,9 +60,9 @@ async function getAccounts(
   // Get total user (document) in collection 'accounts'
   const totalDocuments = await digitalBankingRepository.getCountAccounts();
   const totalAccountName =
-    await digitalBankingRepository.getCountAccountsName(search_word);
+    await digitalBankingRepository.getCountAccountsName(search_split);
   const totalAccountEmail =
-    await digitalBankingRepository.getCountAccountsEmail(search_word);
+    await digitalBankingRepository.getCountAccountsEmail(search_split);
 
   // Create variable and set value total pages
   if (
@@ -231,6 +223,82 @@ async function getAccounts(
 }
 
 /* PENERENAPAN SOAL NO.2 */
+
+/**
+ * Check email
+ * @param {string} email - Email
+ * @returns {boolean}
+ */
+async function checkEmail(email) {
+  const account = await digitalBankingRepository.getAccountByEmail(email);
+
+  if (account) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/**
+ * Check email and pin for login.
+ * @param {string} account_email - Email
+ * @param {string} account_pin - Pin
+ * @returns {object} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
+ */
+async function checkLoginCredentials(account_email, account_pin) {
+  const account =
+    await digitalBankingRepository.getAccountByEmail(account_email);
+  const accountPassword = account
+    ? account.account_pin
+    : '<RANDOM_PASSWORD_FILLER>';
+  const pinChecked = await pinMatched(account_pin, accountPassword);
+  if (account && pinChecked) {
+    return {
+      account_email: account.account_email,
+      account_name: account.account_name,
+      account_id: account.id,
+      token: generateTokenAccount(account.account_email, account.id),
+    };
+  }
+  return null;
+}
+
+/**
+ * Get date now
+ * @returns {Array}
+ */
+function getDate() {
+  var time = new Date();
+  var year = time.getFullYear();
+  var month = time.getMonth() + 1;
+  var date = time.getDate();
+  var hours = time.getHours();
+  var minutes = time.getMinutes();
+  var seconds = time.getSeconds();
+  const data = [];
+  data.push(
+    {
+      year,
+    },
+    {
+      month,
+    },
+    {
+      date,
+    },
+    {
+      hours,
+    },
+    {
+      minutes,
+    },
+    {
+      seconds,
+    }
+  );
+  return data;
+}
+
 // Variable for function attempt login
 var iterator = 1;
 /**
@@ -275,6 +343,22 @@ function attemptLogin(condition_addition, condition_reset) {
 }
 
 /**
+ * String error login
+ * @param {string} account_email -Account Email
+ * @param {number} attempt - Attempt
+ * @param {boolean} condition - Condition
+ * @returns {string}
+ */
+function stringErrorLogin(account_email, attempt, condition) {
+  var time = getDate();
+  if (condition == true) {
+    return `[${time[0].year}-${time[1].month}-${time[2].date} ${time[3].hours}:${time[4].minutes}:${time[5].seconds}] Account ${account_email} mencoba login. Namun karena mendapat error 403 karena telah melebihi batas limit.`;
+  } else {
+    return `[${time[0].year}-${time[1].month}-${time[2].date} ${time[3].hours}:${time[4].minutes}:${time[5].seconds}] Account ${account_email} gagal login. Attempt = ${attempt}`;
+  }
+}
+
+/**
  * Create email with hours & minutes in list blocks
  * @param {string} email - Email
  * @param {number} hours - Hours
@@ -295,35 +379,6 @@ async function createBlock(email, hours, minutes) {
 }
 
 /**
- * Get detail email in list block
- * @param {string} email - Email
- * @returns {object}
- */
-function getDetailEmailBlock(email) {
-  const account = digitalBankingRepository.getEmail(email);
-  if (account) {
-    return account;
-  } else {
-    return null;
-  }
-}
-
-/**
- * Check email
- * @param {string} email - Email
- * @returns {boolean}
- */
-async function checkEmail(email) {
-  const account = await digitalBankingRepository.getAccountByEmail(email);
-
-  if (account) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-/**
  * Check account email in list block
  * @param {string} email - Email
  * @returns {boolean}
@@ -335,6 +390,20 @@ async function checkBlock(email) {
     return false;
   } else {
     return true;
+  }
+}
+
+/**
+ * Get detail email in list block
+ * @param {string} email - Email
+ * @returns {object}
+ */
+function getDetailEmailBlock(email) {
+  const account = digitalBankingRepository.getEmail(email);
+  if (account) {
+    return account;
+  } else {
+    return null;
   }
 }
 
@@ -352,31 +421,7 @@ async function deleteBlock(email) {
   }
 }
 
-/**
- * Check email and pin for login.
- * @param {string} account_email - Email
- * @param {string} account_pin - Pin
- * @returns {object} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
- */
-async function checkLoginCredentials(account_email, account_pin) {
-  const account =
-    await digitalBankingRepository.getAccountByEmail(account_email);
-  const accountPassword = account
-    ? account.account_pin
-    : '<RANDOM_PASSWORD_FILLER>';
-  const pinChecked = await pinMatched(account_pin, accountPassword);
-  if (account && pinChecked) {
-    return {
-      email: account.account_email,
-      name: account.account_name,
-      account_id: account.id,
-      token: generateTokenAccount(account.account_email, account.id),
-    };
-  }
-  return null;
-}
-
-/* PENERENAPAN SOAL NO.3 */
+/* SOAL NO.3 */
 /**
  * Get details account
  * @param {string} id - Account ID
@@ -599,7 +644,7 @@ async function withdrawMoney(id, balance) {
   var new_balance = account.balance - balance;
 
   try {
-    await digitalBankingRepository.updateAccount(id, new_balance);
+    await digitalBankingRepository.updateAccountById(id, new_balance);
   } catch (err) {
     return null;
   }
@@ -624,7 +669,7 @@ async function depositMoney(id, balance) {
   var new_balance = account.balance + balance;
 
   try {
-    await digitalBankingRepository.updateAccount(id, new_balance);
+    await digitalBankingRepository.updateAccountById(id, new_balance);
   } catch (err) {
     return null;
   }
@@ -677,13 +722,15 @@ module.exports = {
   getAccounts,
 
   /* PENERENAPAN SOAL NO.2 */
-  attemptLogin,
-  createBlock,
-  getDetailEmailBlock,
   checkEmail,
-  checkBlock,
-  deleteBlock,
   checkLoginCredentials,
+  getDate,
+  attemptLogin,
+  stringErrorLogin,
+  createBlock,
+  checkBlock,
+  getDetailEmailBlock,
+  deleteBlock,
 
   /* SOAL NO.3 */
   getAccount,

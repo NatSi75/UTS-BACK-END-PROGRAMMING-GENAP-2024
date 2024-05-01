@@ -1,6 +1,7 @@
 const { lowerCase, trimStart } = require('lodash');
 const { Account, account, Block } = require('../../../models');
 
+/* PENERENAPAN SOAL NO.1 */
 /**
  * Get a list of accounts without search
  * @param {number} page_number - Page Number

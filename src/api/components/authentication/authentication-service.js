@@ -2,57 +2,80 @@ const authenticationRepository = require('./authentication-repository');
 const { generateToken } = require('../../../utils/session-token');
 const { passwordMatched } = require('../../../utils/password');
 
+/**
+ * Check email
+ * @param {string} email - Email
+ * @returns {boolean}
+ */
+async function checkEmail(email) {
+  const user = await authenticationRepository.getUserByEmail(email);
+
+  if (user) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/**
+ * Check username and password for login.
+ * @param {string} email - Email
+ * @param {string} password - Password
+ * @returns {object} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
+ */
+async function checkLoginCredentials(email, password) {
+  const user = await authenticationRepository.getUserByEmail(email);
+  const userPassword = user ? user.password : '<RANDOM_PASSWORD_FILLER>';
+  const passwordChecked = await passwordMatched(password, userPassword);
+  if (user && passwordChecked) {
+    return {
+      email: user.email,
+      name: user.name,
+      user_id: user.id,
+      token: generateToken(user.email, user.id),
+    };
+  }
+  return null;
+}
+
+/**
+ * Get date now
+ * @returns {Array}
+ */
+function getDate() {
+  var time = new Date();
+  var year = time.getFullYear();
+  var month = time.getMonth() + 1;
+  var date = time.getDate();
+  var hours = time.getHours();
+  var minutes = time.getMinutes();
+  var seconds = time.getSeconds();
+  const data = [];
+  data.push(
+    {
+      year,
+    },
+    {
+      month,
+    },
+    {
+      date,
+    },
+    {
+      hours,
+    },
+    {
+      minutes,
+    },
+    {
+      seconds,
+    }
+  );
+  return data;
+}
+
 // Variable for function attempt login
 var iterator = 1;
-
-/**
- * Check user email in list block
- * @param {string} email - Email
- * @returns {boolean}
- */
-async function checkBlock(email) {
-  //Apakah user yang sedang login ada di list block
-  const userBlock = await authenticationRepository.getEmail(email);
-  if (!userBlock) {
-    return false;
-  } else {
-    return true;
-  }
-}
-
-/**
- * Create email with hours & minutes in list blocks
- * @param {string} email - Email
- * @param {number} hours - Hours
- * @param {number} minutes - Minutes
- * @returns {boolean}
- */
-async function createBlock(email, hours, minutes) {
-  const success = await authenticationRepository.createEmail(
-    email,
-    hours,
-    minutes
-  );
-  if (!success) {
-    return null;
-  } else {
-    return true;
-  }
-}
-
-/**
- * Delete email in list blocks
- * @param {string} email - Email
- * @returns {boolean}
- */
-async function deleteBlock(email) {
-  const success = await authenticationRepository.deleteEmail(email);
-  if (!success) {
-    return null;
-  } else {
-    return true;
-  }
-}
 
 /**
  * Attempt for login.
@@ -97,38 +120,53 @@ function attemptLogin(condition_addition, condition_reset) {
 }
 
 /**
- * Check username and password for login.
+ * String error login
  * @param {string} email - Email
- * @param {string} password - Password
- * @returns {object} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
+ * @param {number} attempt - Attempt
+ * @param {boolean} condition - Condition
+ * @returns {string}
  */
-async function checkLoginCredentials(email, password) {
-  const user = await authenticationRepository.getUserByEmail(email);
-  const userPassword = user ? user.password : '<RANDOM_PASSWORD_FILLER>';
-  const passwordChecked = await passwordMatched(password, userPassword);
-  if (user && passwordChecked) {
-    return {
-      email: user.email,
-      name: user.name,
-      user_id: user.id,
-      token: generateToken(user.email, user.id),
-    };
+function stringErrorLogin(email, attempt, condition) {
+  var time = getDate();
+  if (condition == true) {
+    return `[${time[0].year}-${time[1].month}-${time[2].date} ${time[3].hours}:${time[4].minutes}:${time[5].seconds}] User ${email} mencoba login. Namun karena mendapat error 403 karena telah melebihi batas limit.`;
+  } else {
+    return `[${time[0].year}-${time[1].month}-${time[2].date} ${time[3].hours}:${time[4].minutes}:${time[5].seconds}] User ${email} gagal login. Attempt = ${attempt}`;
   }
-  return null;
 }
 
 /**
- * Check email
+ * Create email with hours & minutes in list blocks
+ * @param {string} email - Email
+ * @param {number} hours - Hours
+ * @param {number} minutes - Minutes
+ * @returns {boolean}
+ */
+async function createBlock(email, hours, minutes) {
+  const success = await authenticationRepository.createEmail(
+    email,
+    hours,
+    minutes
+  );
+  if (!success) {
+    return null;
+  } else {
+    return true;
+  }
+}
+
+/**
+ * Check user email in list block
  * @param {string} email - Email
  * @returns {boolean}
  */
-async function checkEmail(email) {
-  const user = await authenticationRepository.getUserByEmail(email);
-
-  if (user) {
-    return true;
-  } else {
+async function checkBlock(email) {
+  //Apakah user yang sedang login ada di list block
+  const userBlock = await authenticationRepository.getEmail(email);
+  if (!userBlock) {
     return false;
+  } else {
+    return true;
   }
 }
 
@@ -146,12 +184,28 @@ function getDetailEmailBlock(email) {
   }
 }
 
+/**
+ * Delete email in list blocks
+ * @param {string} email - Email
+ * @returns {boolean}
+ */
+async function deleteBlock(email) {
+  const success = await authenticationRepository.deleteEmail(email);
+  if (!success) {
+    return null;
+  } else {
+    return true;
+  }
+}
+
 module.exports = {
-  checkLoginCredentials,
-  checkBlock,
-  createBlock,
-  deleteBlock,
   checkEmail,
+  checkLoginCredentials,
+  getDate,
   attemptLogin,
+  stringErrorLogin,
+  createBlock,
+  checkBlock,
   getDetailEmailBlock,
+  deleteBlock,
 };
