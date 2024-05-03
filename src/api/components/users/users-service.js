@@ -1,6 +1,6 @@
 const usersRepository = require('./users-repository');
 const { hashPassword, passwordMatched } = require('../../../utils/password');
-const { lowerCase, floor } = require('lodash');
+const { floor } = require('lodash');
 
 /**
  * Get list of users
@@ -11,53 +11,22 @@ const { lowerCase, floor } = require('lodash');
  * @returns {Array}
  */
 async function getUsers(page_number, page_size, sort, search) {
-  var users;
-  var tempPage_number = page_number;
+  // Split to array with 2 index [0] and [1]
+  sort = sort.split(':');
+  search = search.split(':');
 
-  // Variable check
-  var checkName = false;
-  var checkEmail = false;
-
-  // 'email:test' to ['email','test']
-  var sort_split = sort.split(':');
-  var search_split = search.split(':');
-
-  // change asc to 1 or desc to -1
-  if (sort_split[1] == 'asc') {
-    sort_split[1] = 1;
-  } else if (sort_split[1] == 'desc') {
-    sort_split[1] = -1;
-  }
-
-  // change field name to lower case and no space
-  var search_filter = lowerCase(search_split[0]).replace(/\s/g, '');
-
-  // conditional field name
-  if (search_filter == 'name') {
-    checkName = true;
-    users = await usersRepository.getUsersName(
-      page_number,
-      page_size,
-      sort_split,
-      search_split
-    );
-  } else if (search_filter == 'email') {
-    checkEmail = true;
-    users = await usersRepository.getUsersEmail(
-      page_number,
-      page_size,
-      sort_split,
-      search_split
-    );
-  } else {
-    // jika search tidak diisi
-    users = await usersRepository.getUsers(page_number, page_size, sort_split);
-  }
+  const users = await usersRepository.getUsersPagination(
+    page_number,
+    page_size,
+    search,
+    sort
+  );
 
   // Get total user (document) in collection 'users'
-  const totalDocuments = await usersRepository.getCountUsers();
-  const totalUserName = await usersRepository.getCountUsersName(search_split);
-  const totalUserEmail = await usersRepository.getCountUsersEmail(search_split);
+  const documents = await usersRepository.getCountUsers();
+  const documentsSearch = await usersRepository.getCountUsersSearch(search);
+  const totalDocuments = floor(documents / page_size);
+  const totalDocumentsSearch = floor(documentsSearch / page_size);
 
   // Create variable and set value total pages
   if (
@@ -65,21 +34,24 @@ async function getUsers(page_number, page_size, sort, search) {
     (page_number == 0 && page_size == 0)
   ) {
     var total_pages = 1;
-  } else if (page_size > page_number && checkName == true) {
-    var total_pages = floor(totalUserName / page_size) + 1;
-  } else if (page_size > page_number && checkEmail == true) {
-    var total_pages = floor(totalUserEmail / page_size) + 1;
-  } else if (page_size < page_number && checkName == true) {
-    var total_pages = floor(totalUserName / page_size) + 1;
-  } else if (page_size < page_number && checkEmail == true) {
-    var total_pages = floor(totalUserEmail / page_size) + 1;
-  } else if (page_number > page_size) {
-    var total_pages = floor(totalDocuments / page_size) + 1;
-  } else if (page_number < page_size) {
-    var total_pages = floor(totalDocuments / page_size) + 1;
+  } else {
+    if (sort[0].length > 0) {
+      if (totalDocumentsSearch == documentsSearch) {
+        var total_pages = totalDocumentsSearch;
+      } else {
+        var total_pages = totalDocumentsSearch + 1;
+      }
+    } else {
+      if (totalDocuments == documents) {
+        var total_pages = totalDocuments;
+      } else {
+        var total_pages = totalDocuments + 1;
+      }
+    }
   }
 
   // Create variable and set value page_number_result & page_size_result for the result
+  var tempPage_number = page_number;
   var page_number_result = page_number;
   var page_size_result = page_size;
   if (
@@ -98,25 +70,12 @@ async function getUsers(page_number, page_size, sort, search) {
     page_number += 1;
   }
 
-  // Create variable and set value has_next_page & has_previous_page
-  if (total_pages > page_number) {
-    var has_next_page = true;
-  } else {
-    var has_next_page = false;
-  }
-
-  if (page_number > 1 && page_number <= total_pages) {
-    var has_previous_page = true;
-  } else {
-    var has_previous_page = false;
-  }
-
   // Set value result
   const results = [];
   var data = [];
-  var mod = users.length % page_size;
-  var iterator = 0;
-  if (tempPage_number == 0 && page_number == 1 && page_size > page_number) {
+  if (tempPage_number == 0 && page_number == 1 && page_size >= page_number) {
+    var mod = users.length % page_size;
+    var iterator = 0;
     // jika page_number tidak diisi dan page_size diisi
     // maka akan menampilkan semua halaman / semua data
     for (let j = 0; j < total_pages - 1; j += 1) {
@@ -158,6 +117,45 @@ async function getUsers(page_number, page_size, sort, search) {
       page_number++;
     }
 
+    if (mod > 0) {
+      if (total_pages > page_number) {
+        var has_next_page = true;
+      } else {
+        var has_next_page = false;
+      }
+
+      if (page_number > 1 && page_number <= total_pages) {
+        var has_previous_page = true;
+      } else {
+        var has_previous_page = false;
+      }
+
+      // Push sisa data
+      results.push({
+        page_number: page_number,
+        page_size: page_size,
+        count: mod,
+        total_pages: total_pages,
+        has_previous_page: has_previous_page,
+        has_next_page: has_next_page,
+      });
+
+      for (let i = 0; i < mod; i++) {
+        const user = users[iterator];
+        iterator++;
+        data.push({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        });
+      }
+
+      results.push({
+        data: data,
+      });
+    }
+  } else {
+    // Create variable and set value has_next_page & has_previous_page
     if (total_pages > page_number) {
       var has_next_page = true;
     } else {
@@ -170,29 +168,6 @@ async function getUsers(page_number, page_size, sort, search) {
       var has_previous_page = false;
     }
 
-    results.push({
-      page_number: page_number,
-      page_size: page_size,
-      count: mod,
-      total_pages: total_pages,
-      has_previous_page: has_previous_page,
-      has_next_page: has_next_page,
-    });
-
-    for (let i = 0; i < mod; i++) {
-      const user = users[iterator];
-      iterator++;
-      data.push({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      });
-    }
-
-    results.push({
-      data: data,
-    });
-  } else {
     for (let l = 0; l < users.length; l += 1) {
       const user = users[l];
       data.push({

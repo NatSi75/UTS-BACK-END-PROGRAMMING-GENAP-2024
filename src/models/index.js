@@ -19,15 +19,9 @@ const User = mongoose.model('users', mongoose.Schema(usersSchema));
 const Account = mongoose.model('accounts', mongoose.Schema(accountsSchema));
 const Block = mongoose.model('blocks', mongoose.Schema(blockSchema));
 
-// Untuk bisa mengakses collection, agar dapat memakai function tertentu.
-const account = db.collection('accounts');
-const user = db.collection('users');
-
 module.exports = {
   mongoose,
   User,
   Account,
   Block,
-  user,
-  account,
 };

@@ -53,7 +53,7 @@ module.exports = {
     query: {
       page_number: joi.number().integer().positive().default(0),
       page_size: joi.number().integer().positive().default(0),
-      sort: joi.string().default(':1'),
+      sort: joi.string().default('email:asc'),
       search: joi.string().default(':'),
     },
   },

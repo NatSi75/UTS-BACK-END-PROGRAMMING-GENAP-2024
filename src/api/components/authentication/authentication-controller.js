@@ -56,7 +56,8 @@ async function login(request, response, next) {
       const detailUser =
         await authenticationServices.getDetailEmailBlock(email);
       if (
-        detailUser.minutes <= dateNow[4].minutes &&
+        (detailUser.minutes <= dateNow[4].minutes &&
+          detailUser.hours <= dateNow[3].hours) ||
         detailUser.hours <= dateNow[3].hours
       ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
@@ -82,6 +83,10 @@ async function login(request, response, next) {
         detailUser.minutes > dateNow[4].minutes ||
         detailUser.hours > dateNow[3].hours
       ) {
+        console.log(detailUser.minutes);
+        console.log(detailUser.hours);
+        console.log(dateNow[4].minutes);
+        console.log(dateNow[3].hours);
         //Jika waktu menunggu user lebih besar dari waktu sekarang
         //maka dia tidak boleh login dan harus menunggu
         var waitingTime =
