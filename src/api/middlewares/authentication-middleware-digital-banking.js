@@ -13,7 +13,7 @@ passport.use(
       secretOrKey: config.secret.jwt,
     },
     async (payload, done) => {
-      const account = await Account.findOne({ id: payload.user_id });
+      const account = await Account.findOne({ id: payload.id });
       return account ? done(null, account) : done(null, false);
     }
   )

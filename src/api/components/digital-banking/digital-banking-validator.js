@@ -7,11 +7,7 @@ const joiPassword = joi.extend(joiPasswordExtendCore);
 module.exports = {
   createNewAccount: {
     body: {
-      name: joi.string().min(6).max(32).required().label('Name').messages({
-        'string.min': 'Name minimum 6 length',
-        'string.max': 'Name maximum 32 length',
-        'string.required': 'You must write your name.',
-      }),
+      name: joi.string().min(6).max(32).required().label('Name'),
       email: joi.string().email().required().label('Email'),
       ktp: {
         nik: joi.string().min(16).max(16).required().label('NIK'),
@@ -63,55 +59,43 @@ module.exports = {
       access_code_confirmation: joi.ref('access_code'),
     },
   },
-  //For route withdrawMoney & depositMoney
-  Money: {
+
+  login: {
     body: {
-      balance: joi
-        .number()
-        .integer()
-        .positive()
-        .greater(19999)
-        .required()
-        .label('Balance'),
-      pin: joiPassword
+      email: joi.string().email().required().label('Account Email'),
+      access_code: joiPassword
         .string()
-        .regex(/^[0-9]{6}$/)
+        .minOfNumeric(1)
+        .regex(/^[a-z]{1,6}[0-9]{1,6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Pin'),
-    },
-  },
-  //For route check profil & delete account
-  checkDelete: {
-    body: {
-      pin: joiPassword
-        .string()
-        .regex(/^[0-9]{6}$/)
-        .min(6)
-        .max(6)
-        .required()
-        .label('Pin'),
+        .label('Access Code'),
     },
   },
 
-  changePin: {
+  pagination: {
+    query: {
+      page_number: joi.number().integer().positive().default(0),
+      page_size: joi.number().integer().positive().default(0),
+      sort: joi.string().default('account_number:asc'),
+      search: joi.string().default(':'),
+    },
+  },
+
+  changeProfile: {
     body: {
-      pin: joiPassword
+      name: joi.string().min(6).max(32).required().label('Name').messages({
+        'string.min': 'Name minimum 6 length',
+        'string.max': 'Name maximum 32 length',
+        'string.required': 'You must write your name.',
+      }),
+      email: joi.string().email().required().label('Email'),
+      phone_number: joi
         .string()
-        .regex(/^[0-9]{6}$/)
-        .min(6)
-        .max(6)
+        .regex(/^\d{4}-\d{4}-\d{4}$/)
         .required()
-        .label('Pin'),
-      pin_new: joiPassword
-        .string()
-        .regex(/^[0-9]{6}$/)
-        .min(6)
-        .max(6)
-        .required()
-        .label('New Pin'),
-      pin_new_confirm: joi.ref('pin_new'),
+        .label('Phone Number'),
     },
   },
 
@@ -137,19 +121,43 @@ module.exports = {
     },
   },
 
-  changeProfile: {
+  changePin: {
     body: {
-      name: joi.string().min(6).max(32).required().label('Name').messages({
-        'string.min': 'Name minimum 6 length',
-        'string.max': 'Name maximum 32 length',
-        'string.required': 'You must write your name.',
-      }),
-      email: joi.string().email().required().label('Email'),
-      phone_number: joi
+      pin: joiPassword
         .string()
-        .regex(/^\d{4}-\d{4}-\d{4}$/)
+        .regex(/^[0-9]{6}$/)
+        .min(6)
+        .max(6)
         .required()
-        .label('Phone Number'),
+        .label('Pin'),
+      pin_new: joiPassword
+        .string()
+        .regex(/^[0-9]{6}$/)
+        .min(6)
+        .max(6)
+        .required()
+        .label('New Pin'),
+      pin_new_confirm: joi.ref('pin_new'),
+    },
+  },
+
+  //For route withdrawMoney & depositMoney
+  Money: {
+    body: {
+      balance: joi
+        .number()
+        .integer()
+        .positive()
+        .greater(19999)
+        .required()
+        .label('Balance'),
+      pin: joiPassword
+        .string()
+        .regex(/^[0-9]{6}$/)
+        .min(6)
+        .max(6)
+        .required()
+        .label('Pin'),
     },
   },
 
@@ -178,26 +186,16 @@ module.exports = {
     },
   },
 
-  login: {
+  //For route delete history transaction & delete account
+  onlyPin: {
     body: {
-      email: joi.string().email().required().label('Account Email'),
-      access_code: joiPassword
+      pin: joiPassword
         .string()
-        .minOfNumeric(1)
-        .regex(/^[a-z]{1,6}[0-9]{1,6}$/)
+        .regex(/^[0-9]{6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Access Code'),
-    },
-  },
-
-  pagination: {
-    query: {
-      page_number: joi.number().integer().positive().default(0),
-      page_size: joi.number().integer().positive().default(0),
-      sort: joi.string().default('account_number:asc'),
-      search: joi.string().default(':'),
+        .label('Pin'),
     },
   },
 };

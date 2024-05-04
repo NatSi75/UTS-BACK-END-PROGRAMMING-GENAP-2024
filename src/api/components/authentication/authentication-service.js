@@ -3,42 +3,6 @@ const { generateToken } = require('../../../utils/session-token');
 const { passwordMatched } = require('../../../utils/password');
 
 /**
- * Check email
- * @param {string} email - Email
- * @returns {boolean}
- */
-async function checkEmail(email) {
-  const user = await authenticationRepository.getUserByEmail(email);
-
-  if (user) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-/**
- * Check username and password for login.
- * @param {string} email - Email
- * @param {string} password - Password
- * @returns {object} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
- */
-async function checkLoginCredentials(email, password) {
-  const user = await authenticationRepository.getUserByEmail(email);
-  const userPassword = user ? user.password : '<RANDOM_PASSWORD_FILLER>';
-  const passwordChecked = await passwordMatched(password, userPassword);
-  if (user && passwordChecked) {
-    return {
-      email: user.email,
-      name: user.name,
-      user_id: user.id,
-      token: generateToken(user.email, user.id),
-    };
-  }
-  return null;
-}
-
-/**
  * Get date now
  * @returns {Array}
  */
@@ -76,7 +40,6 @@ function getDate() {
 
 // Variable for function attempt login
 var iterator = 1;
-
 /**
  * Attempt for login.
  * @param {boolean} condition_addition -Condition
@@ -120,6 +83,27 @@ function attemptLogin(condition_addition, condition_reset) {
 }
 
 /**
+ * Check username and password for login.
+ * @param {string} email - Email
+ * @param {string} password - Password
+ * @returns {object} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
+ */
+async function checkLoginCredentials(email, password) {
+  const user = await authenticationRepository.getUserByEmail(email);
+  const userPassword = user ? user.password : '<RANDOM_PASSWORD_FILLER>';
+  const passwordChecked = await passwordMatched(password, userPassword);
+  if (user && passwordChecked) {
+    return {
+      email: user.email,
+      name: user.name,
+      user_id: user.id,
+      token: generateToken(user.email, user.id),
+    };
+  }
+  return null;
+}
+
+/**
  * String error login
  * @param {string} email - Email
  * @param {number} attempt - Attempt
@@ -156,12 +140,12 @@ async function createBlock(email, hours, minutes) {
 }
 
 /**
- * Check user email in list block
+ * Check email in list block
  * @param {string} email - Email
  * @returns {boolean}
  */
 async function checkBlock(email) {
-  //Apakah user yang sedang login ada di list block
+  //Apakah email yang sedang login ada di list block
   const userBlock = await authenticationRepository.getEmail(email);
   if (!userBlock) {
     return false;
@@ -192,17 +176,16 @@ function getDetailEmailBlock(email) {
 async function deleteBlock(email) {
   const success = await authenticationRepository.deleteEmail(email);
   if (!success) {
-    return null;
+    return false;
   } else {
     return true;
   }
 }
 
 module.exports = {
-  checkEmail,
-  checkLoginCredentials,
   getDate,
   attemptLogin,
+  checkLoginCredentials,
   stringErrorLogin,
   createBlock,
   checkBlock,

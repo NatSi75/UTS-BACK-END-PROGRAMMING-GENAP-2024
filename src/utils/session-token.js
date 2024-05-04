@@ -24,16 +24,16 @@ function generateToken(email, userId) {
 
 /**
  * Sign and generate JWT token
- * @param {string} account_email - Account Email
- * @param {string} accountId - Account ID
+ * @param {string} email - Account Email
+ * @param {string} id - Account ID
  * @returns {string} Token
  */
-function generateTokenAccount(account_email, accountId) {
+function generateTokenAccount(email, id) {
   // Sign the JWT token with account info and set the expiration date
   return jwt.sign(
     {
-      account_email,
-      accountId,
+      email,
+      id,
     },
     config.secret.jwt,
     {

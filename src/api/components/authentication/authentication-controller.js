@@ -16,9 +16,11 @@ async function login(request, response, next) {
     //Waktu account login
     const dateLogin = authenticationServices.attemptLogin(false, false);
 
+    //Cek apakah email ada dalam list block
     const successCheckBlock = await authenticationServices.checkBlock(email);
+
     if (successCheckBlock == false) {
-      // Jika email user nggak ada di list block
+      // Jika email nggak ada di list block
       // Check login credentials
       const loginSuccess = await authenticationServices.checkLoginCredentials(
         email,
@@ -26,10 +28,11 @@ async function login(request, response, next) {
       );
 
       if (loginSuccess) {
+        //Jika berhasil login, attempt di reset
         authenticationServices.attemptLogin(false, true);
       } else if (!loginSuccess && dateLogin[0].temp == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
-        const coba = await authenticationServices.createBlock(
+        const createBlock = await authenticationServices.createBlock(
           email,
           dateLogin[1].hours,
           dateLogin[2].minutes
@@ -62,7 +65,7 @@ async function login(request, response, next) {
           detailUser.minutes >= dateNow[4].minutes)
       ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
-        //maka dia boleh login dan menghilangkan dia dari list block
+        //maka dia boleh login
         // Check login credentials
         const loginSuccess = await authenticationServices.checkLoginCredentials(
           email,
@@ -70,10 +73,11 @@ async function login(request, response, next) {
         );
 
         if (loginSuccess) {
+          //Jika berhasil login, maka hilangkan email user dari list block
+          //dan attempt di reset
           authenticationServices.deleteBlock(email);
           authenticationServices.attemptLogin(false, true);
         } else if (!loginSuccess) {
-          console.log('taiii1');
           throw errorResponder(
             errorTypes.INVALID_CREDENTIALS,
             'Wrong email or password',

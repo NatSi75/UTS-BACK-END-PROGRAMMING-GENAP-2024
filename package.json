@@ -7,6 +7,7 @@
     "dev": "nodemon ./src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "node ./migrations/20240324121101_create_default_users.js",
+    "migrate2": "node ./migrations/create_default_accounts",
     "eslint": "eslint src/**"
   },
   "author": "Janson Hendryli",

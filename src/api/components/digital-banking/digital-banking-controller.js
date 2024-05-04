@@ -61,7 +61,9 @@ async function login(request, response, next) {
     //Waktu account login
     const dateLogin = digitalBankingService.attemptLogin(false, false);
 
+    //Cek apakah email ada dalam list block
     const successCheckBlock = await digitalBankingService.checkBlock(email);
+
     if (successCheckBlock == false) {
       // Jika email account nggak ada di list block
       // Check login credentials
@@ -71,6 +73,7 @@ async function login(request, response, next) {
       );
 
       if (loginSuccess) {
+        //Jika berhasil login, attempt di reset
         digitalBankingService.attemptLogin(false, true);
       } else if (!loginSuccess && dateLogin[0].temp == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
@@ -105,13 +108,13 @@ async function login(request, response, next) {
       const detailAccount =
         await digitalBankingService.getDetailEmailBlock(email);
       if (
-        (detailUser.hours <= dateNow[3].hours &&
-          detailUser.minutes <= dateNow[4].minutes) ||
-        (detailUser.hours < dateNow[3].hours &&
-          detailUser.minutes >= dateNow[4].minutes)
+        (detailAccount.hours <= dateNow[3].hours &&
+          detailAccount.minutes <= dateNow[4].minutes) ||
+        (detailAccount.hours < dateNow[3].hours &&
+          detailAccount.minutes >= dateNow[4].minutes)
       ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
-        //maka dia boleh login dan menghilangkan dia dari list block
+        //maka dia boleh login
         // Check login credentials
         const loginSuccess = await digitalBankingService.checkLoginCredentials(
           email,
@@ -119,6 +122,8 @@ async function login(request, response, next) {
         );
 
         if (loginSuccess) {
+          //Jika berhasil login, maka hilangkan email user dari list block
+          //dan attempt di reset
           digitalBankingService.deleteBlock(email);
           digitalBankingService.attemptLogin(false, true);
         } else if (!loginSuccess) {
@@ -236,6 +241,31 @@ async function createNewAccount(request, response, next) {
 }
 
 /**
+ * Handle check profile account request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function checkProfile(request, response, next) {
+  try {
+    const { id } = request.params;
+    const successId = await digitalBankingService.idIsRegistered;
+    if (!successId) {
+      throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'Account None');
+    }
+    const account = await digitalBankingService.getAccountById(id);
+    return response
+      .status(200)
+      .send(
+        `Profile \nName : ${account[0].name} \nEmail : ${account[0].email} \nPhone Number : ${account[0].phone_number}`
+      );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
  * Handle check balance account request
  * @param {object} request - Express request object
  * @param {object} response - Express response object
@@ -251,121 +281,12 @@ async function checkBalance(request, response, next) {
     if (!successId) {
       throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'Account None');
     }
-    const account = await digitalBankingService.getAccount(id);
+    const account = await digitalBankingService.getAccountById(id);
     return response
       .status(200)
       .send(
         `Info Saldo \n${dateNow[2].date}/${dateNow[1].month} ${dateNow[3].hours}:${dateNow[4].minutes}:${dateNow[5].seconds}\n${account[0].account_number} Rp.${account[0].balance}`
       );
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
- * Handle check profile account request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function checkProfile(request, response, next) {
-  try {
-    const { id } = request.params;
-    const successId = await digitalBankingService.idIsRegistered;
-    if (!successId) {
-      throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'Account None');
-    }
-    const account = await digitalBankingService.getAccount(id);
-    return response
-      .status(200)
-      .send(
-        `Profile \nName : ${account[0].name} \nEmail : ${account[0].email} \nPhone Number : ${account[0].phone_number}`
-      );
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
- * Handle change pin request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function changePin(request, response, next) {
-  try {
-    const id = request.params.id;
-    const { pin, pin_new, pin_new_confirm } = request.body;
-
-    // Check pin confirmation
-    if (pin_new !== pin_new_confirm) {
-      throw errorResponder(
-        errorTypes.INVALID_PIN,
-        'Pin confirmation mismatched'
-      );
-    }
-
-    // Check old pin
-    if (!(await digitalBankingService.checkPin(id, pin))) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
-    }
-
-    const changeSuccess = await digitalBankingService.changePin(id, pin_new);
-
-    if (!changeSuccess) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to change pin'
-      );
-    }
-
-    return response.status(200).send(`Success Change Pin!`);
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
- * Handle change access code request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function changeAccessCode(request, response, next) {
-  try {
-    const id = request.params.id;
-    const { access_code, access_code_new, access_code_new_confirm } =
-      request.body;
-
-    // Check pin confirmation
-    if (access_code_new !== access_code_new_confirm) {
-      throw errorResponder(
-        errorTypes.INVALID_PIN,
-        'Access code confirmation mismatched'
-      );
-    }
-
-    // Check old pin
-    if (!(await digitalBankingService.checkAccessCode(id, access_code))) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong access code');
-    }
-
-    const changeSuccess = await digitalBankingService.changeAccessCode(
-      id,
-      access_code_new
-    );
-
-    if (!changeSuccess) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to change access code'
-      );
-    }
-
-    return response.status(200).send(`Success Change Access Code!`);
   } catch (error) {
     return next(error);
   }
@@ -417,6 +338,90 @@ async function changeProfile(request, response, next) {
     }
 
     return response.status(200).send(`Success Change Profile!`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle change access code request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function changeAccessCode(request, response, next) {
+  try {
+    const id = request.params.id;
+    const { access_code, access_code_new, access_code_new_confirm } =
+      request.body;
+
+    // Check pin confirmation
+    if (access_code_new !== access_code_new_confirm) {
+      throw errorResponder(
+        errorTypes.INVALID_PIN,
+        'Access code confirmation mismatched'
+      );
+    }
+
+    // Check old pin
+    if (!(await digitalBankingService.checkAccessCode(id, access_code))) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong access code');
+    }
+
+    const changeSuccess = await digitalBankingService.changeAccessCode(
+      id,
+      access_code_new
+    );
+
+    if (!changeSuccess) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to change access code'
+      );
+    }
+
+    return response.status(200).send(`Success Change Access Code!`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle change pin request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function changePin(request, response, next) {
+  try {
+    const id = request.params.id;
+    const { pin, pin_new, pin_new_confirm } = request.body;
+
+    // Check pin confirmation
+    if (pin_new !== pin_new_confirm) {
+      throw errorResponder(
+        errorTypes.INVALID_PIN,
+        'Pin confirmation mismatched'
+      );
+    }
+
+    // Check old pin
+    if (!(await digitalBankingService.checkPin(id, pin))) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const changeSuccess = await digitalBankingService.changePin(id, pin_new);
+
+    if (!changeSuccess) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to change pin'
+      );
+    }
+
+    return response.status(200).send(`Success Change Pin!`);
   } catch (error) {
     return next(error);
   }
@@ -689,7 +694,7 @@ async function deleteAccount(request, response, next) {
       );
     }
 
-    return response.status(200).json({ id });
+    return response.status(200).send(`Success Delete Account!`);
   } catch (error) {
     return next(error);
   }
@@ -704,11 +709,11 @@ module.exports = {
 
   /* SOAL NO.3 */
   createNewAccount,
-  checkBalance,
   checkProfile,
-  changePin,
-  changeAccessCode,
+  checkBalance,
   changeProfile,
+  changeAccessCode,
+  changePin,
   withdrawMoney,
   depositMoney,
   transferMoney,

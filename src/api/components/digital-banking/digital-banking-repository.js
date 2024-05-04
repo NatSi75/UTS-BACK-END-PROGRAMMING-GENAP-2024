@@ -10,7 +10,6 @@ const { Account, Block } = require('../../../models');
  * @returns {Promise}
  */
 async function getAccountsPagination(page_number, page_size, search, sort) {
-  console.log(search[1]);
   if (
     search[0].length > 0 &&
     search[1].length > 0 &&
@@ -188,36 +187,11 @@ async function createNewAccount(
 }
 
 /**
- * Delete a account
- * @param {string} id - Account ID
- * @returns {Promise}
- */
-async function deleteAccount(id) {
-  return Account.deleteOne({ _id: id });
-}
-
-/**
- * Delete history transaction
- * @param {string} id - Account ID
- * @returns {Promise}
- */
-async function deleteHistoryTransaction(id) {
-  return Account.updateOne(
-    { _id: id },
-    {
-      $set: {
-        transaction: [],
-      },
-    }
-  );
-}
-
-/**
  * Get account detail
  * @param {string} id - Account ID
  * @returns {Promise}
  */
-async function getAccount(id) {
+async function getAccountById(id) {
   return Account.findById(id);
 }
 
@@ -246,6 +220,47 @@ async function getAccountByEmail(email) {
  */
 async function getAccountByAccountNumber(account_number) {
   return Account.findOne({ account_number });
+}
+
+/**
+ * Update profile
+ * @param {string} id - Account ID
+ * @param {string} name - Name
+ * @param {string} email - Email
+ * @param {string} phone_number - Phone Number
+ * @returns {Promise}
+ */
+async function changeProfile(id, name, email, phone_number) {
+  return Account.updateOne(
+    { _id: id },
+    {
+      $set: {
+        name,
+        email,
+        phone_number,
+      },
+    }
+  );
+}
+
+/**
+ * Update access code
+ * @param {string} id - Account ID
+ * @param {string} access_code - New Hashed Access Code
+ * @returns {Promise}
+ */
+async function changeAccessCode(id, access_code) {
+  return Account.updateOne({ _id: id }, { $set: { access_code } });
+}
+
+/**
+ * Update pin
+ * @param {string} id - Account ID
+ * @param {string} pin - New Hashed Pin
+ * @returns {Promise}
+ */
+async function changePin(id, pin) {
+  return Account.updateOne({ _id: id }, { $set: { pin } });
 }
 
 /**
@@ -354,44 +369,28 @@ async function updateAccountTransactionByAccountNumber(
 }
 
 /**
- * Update pin
+ * Delete history transaction
  * @param {string} id - Account ID
- * @param {string} pin - New Hashed Pin
  * @returns {Promise}
  */
-async function changePin(id, pin) {
-  return Account.updateOne({ _id: id }, { $set: { pin } });
-}
-
-/**
- * Update access code
- * @param {string} id - Account ID
- * @param {string} access_code - New Hashed Access Code
- * @returns {Promise}
- */
-async function changeAccessCode(id, access_code) {
-  return Account.updateOne({ _id: id }, { $set: { access_code } });
-}
-
-/**
- * Update profile
- * @param {string} id - Account ID
- * @param {string} name - Name
- * @param {string} email - Email
- * @param {string} phone_number - Phone Number
- * @returns {Promise}
- */
-async function changeProfile(id, name, email, phone_number) {
+async function deleteHistoryTransaction(id) {
   return Account.updateOne(
     { _id: id },
     {
       $set: {
-        name,
-        email,
-        phone_number,
+        transaction: [],
       },
     }
   );
+}
+
+/**
+ * Delete a account
+ * @param {string} id - Account ID
+ * @returns {Promise}
+ */
+async function deleteAccount(id) {
+  return Account.deleteOne({ _id: id });
 }
 
 module.exports = {
@@ -407,17 +406,17 @@ module.exports = {
 
   /* SOAL NO.3 */
   createNewAccount,
-  deleteAccount,
-  deleteHistoryTransaction,
-  getAccount,
+  getAccountById,
   getAccountByName,
   getAccountByEmail,
   getAccountByAccountNumber,
+  changeProfile,
+  changeAccessCode,
+  changePin,
   updateAccountById,
   updateAccountByNumberAccount,
-  changePin,
-  changeAccessCode,
-  changeProfile,
   updateAccountTransactionById,
   updateAccountTransactionByAccountNumber,
+  deleteHistoryTransaction,
+  deleteAccount,
 };

@@ -80,12 +80,13 @@ async function getAccounts(page_number, page_size, sort, search) {
   // Set value result
   const results = [];
   var data = [];
-  if (tempPage_number == 0 && page_number == 1 && page_size > page_number) {
+  if (tempPage_number == 0 && page_number == 1 && page_size >= page_number) {
     var mod = accounts.length % page_size;
+    console.log(mod);
     var iterator = 0;
     // jika page_number tidak diisi dan page_size diisi
     // maka akan menampilkan semua halaman / semua data
-    for (let j = 0; j < total_pages - 1; j += 1) {
+    for (let j = 0; j < total_pages; j += 1) {
       if (total_pages > page_number) {
         var has_next_page = true;
       } else {
@@ -130,6 +131,7 @@ async function getAccounts(page_number, page_size, sort, search) {
     }
 
     if (mod > 0) {
+      console.log('taii');
       if (total_pages > page_number) {
         var has_next_page = true;
       } else {
@@ -214,48 +216,6 @@ async function getAccounts(page_number, page_size, sort, search) {
 }
 
 /* PENERENAPAN SOAL NO.2 */
-
-/**
- * Check email
- * @param {string} email - Email
- * @returns {boolean}
- */
-async function checkEmail(email) {
-  const account = await digitalBankingRepository.getAccountByEmail(email);
-
-  if (account) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-/**
- * Check email and access code for login.
- * @param {string} email - Email
- * @param {string} access_code - Access Code
- * @returns {Array} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
- */
-async function checkLoginCredentials(email, access_code) {
-  const account = await digitalBankingRepository.getAccountByEmail(email);
-  const accountPassword = account
-    ? account.access_code
-    : '<RANDOM_PASSWORD_FILLER>';
-  const accessCodeChecked = await accessCodeMatched(
-    access_code,
-    accountPassword
-  );
-  if (account && accessCodeChecked) {
-    return {
-      id: account.id,
-      name: account.name,
-      email: account.email,
-      token: generateTokenAccount(account.email, account.id),
-    };
-  }
-  return null;
-}
-
 /**
  * Get date now
  * @returns {Array}
@@ -333,6 +293,32 @@ function attemptLogin(condition_addition, condition_reset) {
     }
   );
   return data;
+}
+
+/**
+ * Check email and access code for login.
+ * @param {string} email - Email
+ * @param {string} access_code - Access Code
+ * @returns {Array} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
+ */
+async function checkLoginCredentials(email, access_code) {
+  const account = await digitalBankingRepository.getAccountByEmail(email);
+  const accountPassword = account
+    ? account.access_code
+    : '<RANDOM_PASSWORD_FILLER>';
+  const accessCodeChecked = await accessCodeMatched(
+    access_code,
+    accountPassword
+  );
+  if (account && accessCodeChecked) {
+    return {
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      token: generateTokenAccount(account.email, account.id),
+    };
+  }
+  return null;
 }
 
 /**
@@ -416,69 +402,48 @@ async function deleteBlock(email) {
 
 /* SOAL NO.3 */
 /**
- * Get details account
- * @param {string} id - Account ID
- * @returns {Array}
+ * Check whether the account name is registered
+ * @param {string} name - Account Name
+ * @returns {boolean}
  */
-async function getAccount(id) {
-  const account = await digitalBankingRepository.getAccount(id);
-  const data = [];
+async function nameIsRegistered(name) {
+  const account = await digitalBankingRepository.getAccountByName(name);
+
   if (account) {
-    data.push({
-      account_number: account.account_number,
-      name: account.name,
-      email: account.email,
-      phone_number: account.phone_number,
-      balance: account.balance,
-    });
-    return data;
+    return true;
   }
 
-  return null;
+  return false;
 }
 
 /**
- * Check account by id
+ * Check whether the account email is registered
+ * @param {string} email - Account Email
+ * @returns {boolean}
+ */
+async function emailIsRegistered(email) {
+  const account = await digitalBankingRepository.getAccountByEmail(email);
+
+  if (account) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check whether the account id is registered
  * @param {string} id - Account ID
  * @returns {boolean}
  */
-async function getAccountById(id) {
-  try {
-    await digitalBankingRepository.getAccount(id);
-  } catch (err) {
-    return false;
+async function idIsRegistered(id) {
+  const account = await digitalBankingRepository.getAccountById(id);
+
+  if (account) {
+    return true;
   }
 
-  return true;
-}
-
-/**
- * Check account by name
- * @param {string} account_name - Account Name
- * @returns {boolean}
- */
-async function getAccountByName(account_name) {
-  try {
-    await digitalBankingRepository.getAccountByName(account_name);
-  } catch (err) {
-    return null;
-  }
-
-  return true;
-}
-
-/**
- * Check account by account number
- * @param {string} account_number - Account Number Receiver
- * @returns {boolean}
- */
-async function getAccountByAccountNumber(account_number) {
-  try {
-    await digitalBankingRepository.getAccountByAccountNumber(account_number);
-  } catch (err) {
-    return false;
-  }
-  return true;
+  return false;
 }
 
 /**
@@ -551,20 +516,35 @@ async function createAccountNumber() {
 }
 
 /**
- * Delete account
+ * Get details account
  * @param {string} id - Account ID
- * @returns {boolean}
+ * @returns {Array}
  */
-async function deleteAccount(id) {
-  const account = await digitalBankingRepository.getAccount(id);
-
-  // Account not found
-  if (!account) {
-    return null;
+async function getAccountById(id) {
+  const account = await digitalBankingRepository.getAccountById(id);
+  const data = [];
+  if (account) {
+    data.push({
+      account_number: account.account_number,
+      name: account.name,
+      email: account.email,
+      phone_number: account.phone_number,
+      balance: account.balance,
+    });
+    return data;
   }
 
+  return null;
+}
+
+/**
+ * Check account by name
+ * @param {string} account_name - Account Name
+ * @returns {boolean}
+ */
+async function getAccountByName(account_name) {
   try {
-    await digitalBankingRepository.deleteAccount(id);
+    await digitalBankingRepository.getAccountByName(account_name);
   } catch (err) {
     return null;
   }
@@ -573,131 +553,36 @@ async function deleteAccount(id) {
 }
 
 /**
- * Check whether the account name is registered
- * @param {string} name - Account Name
+ * Check account by account number
+ * @param {string} account_number - Account Number Receiver
  * @returns {boolean}
  */
-async function nameIsRegistered(name) {
-  const account = await digitalBankingRepository.getAccountByName(name);
-
-  if (account) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Check whether the account email is registered
- * @param {string} email - Account Email
- * @returns {boolean}
- */
-async function emailIsRegistered(email) {
-  const account = await digitalBankingRepository.getAccountByEmail(email);
-
-  if (account) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Check whether the account id is registered
- * @param {string} id - Account ID
- * @returns {boolean}
- */
-async function idIsRegistered(id) {
-  const account = await digitalBankingRepository.getAccount(id);
-
-  if (account) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Check whether the pin is correct
- * @param {string} id - Account ID
- * @param {string} pin - Account Pin Old
- * @returns {boolean}
- */
-async function checkPin(id, pin) {
-  const account = await digitalBankingRepository.getAccount(id);
-  if (account) {
-    return pinMatched(pin, account.pin);
-  } else {
+async function getAccountByAccountNumber(account_number) {
+  try {
+    await digitalBankingRepository.getAccountByAccountNumber(account_number);
+  } catch (err) {
     return false;
   }
-}
-
-/**
- * Change pin
- * @param {string} id - Account ID
- * @param {string} pin_new - New Account Pin
- * @returns {boolean}
- */
-async function changePin(id, pin_new) {
-  const account = await digitalBankingRepository.getAccount(id);
-
-  // Check if account not found
-  if (!account) {
-    return null;
-  }
-
-  const hashedPin = await hashPin(pin_new);
-
-  const changeSuccess = await digitalBankingRepository.changePin(id, hashedPin);
-
-  if (!changeSuccess) {
-    return null;
-  }
-
   return true;
 }
 
 /**
- * Check whether the access code is correct
+ * Check id and pin for action.
  * @param {string} id - Account ID
- * @param {string} access_code - Account Access Code Old
+ * @param {string} pin - Account Pin
  * @returns {boolean}
  */
-async function checkAccessCode(id, access_code) {
-  const account = await digitalBankingRepository.getAccount(id);
-  if (account) {
-    return accessCodeMatched(access_code, account.access_code);
-  } else {
-    return false;
-  }
-}
+async function checkPinCredentials(id, pin) {
+  const account = await digitalBankingRepository.getAccountById(id);
 
-/**
- * Change access code
- * @param {string} id - Account ID
- * @param {string} access_code - New Access Code
- * @returns {boolean}
- */
-async function changeAccessCode(id, access_code) {
-  const account = await digitalBankingRepository.getAccount(id);
+  const accountPin = account ? account.pin : '<RANDOM_PASSWORD_FILLER>';
+  const pinChecked = await pinMatched(pin, accountPin);
 
-  // Check if account not found
-  if (!account) {
-    return false;
+  if (account && pinChecked) {
+    return true;
   }
 
-  const hashedAccessCode = await hashAccessCode(access_code);
-
-  const changeSuccess = await digitalBankingRepository.changeAccessCode(
-    id,
-    hashedAccessCode
-  );
-
-  if (!changeSuccess) {
-    return false;
-  }
-
-  return true;
+  return false;
 }
 
 /**
@@ -709,7 +594,7 @@ async function changeAccessCode(id, access_code) {
  * @returns {boolean}
  */
 async function changeProfile(id, name, email, phone_number) {
-  const account = await digitalBankingRepository.getAccount(id);
+  const account = await digitalBankingRepository.getAccountById(id);
 
   // Check if account not found
   if (!account) {
@@ -731,22 +616,86 @@ async function changeProfile(id, name, email, phone_number) {
 }
 
 /**
- * Check id and pin for action.
+ * Check whether the access code is correct
  * @param {string} id - Account ID
- * @param {string} pin - Account Pin
+ * @param {string} access_code - Account Access Code Old
  * @returns {boolean}
  */
-async function checkPinCredentials(id, pin) {
-  const account = await digitalBankingRepository.getAccount(id);
+async function checkAccessCode(id, access_code) {
+  const account = await digitalBankingRepository.getAccountById(id);
+  if (account) {
+    return accessCodeMatched(access_code, account.access_code);
+  } else {
+    return false;
+  }
+}
 
-  const accountPin = account ? account.pin : '<RANDOM_PASSWORD_FILLER>';
-  const pinChecked = await pinMatched(pin, accountPin);
+/**
+ * Change access code
+ * @param {string} id - Account ID
+ * @param {string} access_code - New Access Code
+ * @returns {boolean}
+ */
+async function changeAccessCode(id, access_code) {
+  const account = await digitalBankingRepository.getAccountById(id);
 
-  if (account && pinChecked) {
-    return true;
+  // Check if account not found
+  if (!account) {
+    return false;
   }
 
-  return false;
+  const hashedAccessCode = await hashAccessCode(access_code);
+
+  const changeSuccess = await digitalBankingRepository.changeAccessCode(
+    id,
+    hashedAccessCode
+  );
+
+  if (!changeSuccess) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Check whether the pin is correct
+ * @param {string} id - Account ID
+ * @param {string} pin - Account Pin Old
+ * @returns {boolean}
+ */
+async function checkPin(id, pin) {
+  const account = await digitalBankingRepository.getAccountById(id);
+  if (account) {
+    return pinMatched(pin, account.pin);
+  } else {
+    return false;
+  }
+}
+
+/**
+ * Change pin
+ * @param {string} id - Account ID
+ * @param {string} pin_new - New Account Pin
+ * @returns {boolean}
+ */
+async function changePin(id, pin_new) {
+  const account = await digitalBankingRepository.getAccountById(id);
+
+  // Check if account not found
+  if (!account) {
+    return null;
+  }
+
+  const hashedPin = await hashPin(pin_new);
+
+  const changeSuccess = await digitalBankingRepository.changePin(id, hashedPin);
+
+  if (!changeSuccess) {
+    return null;
+  }
+
+  return true;
 }
 
 /**
@@ -756,7 +705,7 @@ async function checkPinCredentials(id, pin) {
  * @returns {boolean}
  */
 async function withdrawMoney(id, balance) {
-  const account = await digitalBankingRepository.getAccount(id);
+  const account = await digitalBankingRepository.getAccountById(id);
 
   // Account not found
   if (!account) {
@@ -781,7 +730,7 @@ async function withdrawMoney(id, balance) {
  * @returns {boolean}
  */
 async function depositMoney(id, balance) {
-  const account = await digitalBankingRepository.getAccount(id);
+  const account = await digitalBankingRepository.getAccountById(id);
 
   // Account not found
   if (!account) {
@@ -807,7 +756,7 @@ async function depositMoney(id, balance) {
  * @returns {boolean}
  */
 async function transferMoney(id, account_number, balance) {
-  const account_sender = await digitalBankingRepository.getAccount(id);
+  const account_sender = await digitalBankingRepository.getAccountById(id);
   const account_receiver =
     await digitalBankingRepository.getAccountByAccountNumber(account_number);
 
@@ -912,7 +861,7 @@ async function transactionTransferMoney(
  * @returns {Object}
  */
 async function historyTransaction(id) {
-  const account = await digitalBankingRepository.getAccount(id);
+  const account = await digitalBankingRepository.getAccountById(id);
   return account.transaction;
 }
 
@@ -922,7 +871,7 @@ async function historyTransaction(id) {
  * @returns {boolean}
  */
 async function deleteHistoryTransaction(id) {
-  const account = await digitalBankingRepository.getAccount(id);
+  const account = await digitalBankingRepository.getAccountById(id);
 
   // Account not found
   if (!account) {
@@ -938,15 +887,36 @@ async function deleteHistoryTransaction(id) {
   return true;
 }
 
+/**
+ * Delete account
+ * @param {string} id - Account ID
+ * @returns {boolean}
+ */
+async function deleteAccount(id) {
+  const account = await digitalBankingRepository.getAccountById(id);
+
+  // Account not found
+  if (!account) {
+    return null;
+  }
+
+  try {
+    await digitalBankingRepository.deleteAccount(id);
+  } catch (err) {
+    return null;
+  }
+
+  return true;
+}
+
 module.exports = {
   /* PENERENAPAN SOAL NO.1 */
   getAccounts,
 
   /* PENERENAPAN SOAL NO.2 */
-  checkEmail,
-  checkLoginCredentials,
   getDate,
   attemptLogin,
+  checkLoginCredentials,
   stringErrorLogin,
   createBlock,
   checkBlock,
@@ -954,22 +924,20 @@ module.exports = {
   deleteBlock,
 
   /* SOAL NO.3 */
-  getAccount,
-  getAccountById,
-  getAccountByName,
-  getAccountByAccountNumber,
-  createNewAccount,
-  createAccountNumber,
-  deleteAccount,
   nameIsRegistered,
   emailIsRegistered,
   idIsRegistered,
-  checkPin,
-  changePin,
+  createAccountNumber,
+  createNewAccount,
+  getAccountById,
+  getAccountByName,
+  getAccountByAccountNumber,
+  checkPinCredentials,
+  changeProfile,
   checkAccessCode,
   changeAccessCode,
-  changeProfile,
-  checkPinCredentials,
+  checkPin,
+  changePin,
   withdrawMoney,
   depositMoney,
   transferMoney,
@@ -977,4 +945,5 @@ module.exports = {
   transactionTransferMoney,
   historyTransaction,
   deleteHistoryTransaction,
+  deleteAccount,
 };

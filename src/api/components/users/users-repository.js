@@ -146,12 +146,12 @@ async function changePassword(id, password) {
 
 module.exports = {
   getUsersPagination,
+  getCountUsers,
+  getCountUsersSearch,
   getUser,
   createUser,
   updateUser,
   deleteUser,
   getUserByEmail,
   changePassword,
-  getCountUsers,
-  getCountUsersSearch,
 };

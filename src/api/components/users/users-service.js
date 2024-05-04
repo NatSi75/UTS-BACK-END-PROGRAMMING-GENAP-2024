@@ -75,10 +75,11 @@ async function getUsers(page_number, page_size, sort, search) {
   var data = [];
   if (tempPage_number == 0 && page_number == 1 && page_size >= page_number) {
     var mod = users.length % page_size;
+    console.log(mod);
     var iterator = 0;
     // jika page_number tidak diisi dan page_size diisi
     // maka akan menampilkan semua halaman / semua data
-    for (let j = 0; j < total_pages - 1; j += 1) {
+    for (let j = 0; j < total_pages; j += 1) {
       if (total_pages > page_number) {
         var has_next_page = true;
       } else {

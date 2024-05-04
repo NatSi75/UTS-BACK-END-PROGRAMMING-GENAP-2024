@@ -10,18 +10,19 @@ const route = express.Router();
 module.exports = (app) => {
   app.use('/digital-banking', route);
 
-  //Create new account
-  route.post(
-    '/',
-    celebrate(digitalBankingValidator.createNewAccount),
-    digitalBankingControllers.createNewAccount
-  );
-
   //Login digital banking
   route.post(
     '/login',
     celebrate(digitalBankingValidator.login),
     digitalBankingControllers.login
+  );
+
+  //Create new account
+  route.post(
+    '/',
+    authenticationMiddleware,
+    celebrate(digitalBankingValidator.createNewAccount),
+    digitalBankingControllers.createNewAccount
   );
 
   //Get list of accounts with pagination
@@ -32,6 +33,13 @@ module.exports = (app) => {
     digitalBankingControllers.getAccounts
   );
 
+  //Check Profile
+  route.get(
+    '/:id/check-profile',
+    authenticationMiddleware,
+    digitalBankingControllers.checkProfile
+  );
+
   //Check Balance
   route.get(
     '/:id/check-balance',
@@ -39,19 +47,12 @@ module.exports = (app) => {
     digitalBankingControllers.checkBalance
   );
 
-  //Check Profil
-  route.get(
-    '/:id/check-profile',
+  //Change profile
+  route.put(
+    '/:id/change-profile',
     authenticationMiddleware,
-    digitalBankingControllers.checkProfile
-  );
-
-  //Change pin
-  route.post(
-    '/:id/change-pin',
-    authenticationMiddleware,
-    celebrate(digitalBankingValidator.changePin),
-    digitalBankingControllers.changePin
+    celebrate(digitalBankingValidator.changeProfile),
+    digitalBankingControllers.changeProfile
   );
 
   //Change access code
@@ -62,12 +63,12 @@ module.exports = (app) => {
     digitalBankingControllers.changeAccessCode
   );
 
-  //Change profile
-  route.put(
-    '/:id/change-profile',
+  //Change pin
+  route.post(
+    '/:id/change-pin',
     authenticationMiddleware,
-    celebrate(digitalBankingValidator.changeProfile),
-    digitalBankingControllers.changeProfile
+    celebrate(digitalBankingValidator.changePin),
+    digitalBankingControllers.changePin
   );
 
   //Withdraw money
@@ -98,7 +99,7 @@ module.exports = (app) => {
   route.get(
     '/:id/history-transaction',
     authenticationMiddleware,
-    celebrate(digitalBankingValidator.checkDelete),
+    celebrate(digitalBankingValidator.onlyPin),
     digitalBankingControllers.historyTransaction
   );
 
@@ -106,7 +107,7 @@ module.exports = (app) => {
   route.delete(
     '/:id/history-transaction',
     authenticationMiddleware,
-    celebrate(digitalBankingValidator.checkDelete),
+    celebrate(digitalBankingValidator.onlyPin),
     digitalBankingControllers.deleteHistoryTransaction
   );
 
@@ -114,7 +115,7 @@ module.exports = (app) => {
   route.delete(
     '/:id',
     authenticationMiddleware,
-    celebrate(digitalBankingValidator.checkDelete),
+    celebrate(digitalBankingValidator.onlyPin),
     digitalBankingControllers.deleteAccount
   );
 };
