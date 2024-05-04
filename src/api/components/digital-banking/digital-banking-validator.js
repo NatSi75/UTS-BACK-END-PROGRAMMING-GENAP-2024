@@ -1,32 +1,66 @@
 const joi = require('joi');
 const { joiPasswordExtendCore } = require('joi-password');
+const date = require('@joi/date');
+const joiDate = joi.extend(date);
 const joiPassword = joi.extend(joiPasswordExtendCore);
 
 module.exports = {
   createNewAccount: {
     body: {
-      account_name: joi
+      name: joi.string().min(6).max(32).required().label('Name').messages({
+        'string.min': 'Name minimum 6 length',
+        'string.max': 'Name maximum 32 length',
+        'string.required': 'You must write your name.',
+      }),
+      email: joi.string().email().required().label('Email'),
+      ktp: {
+        nik: joi.string().min(16).max(16).required().label('NIK'),
+        place_ob: joi.string().required().label('Place Of Birth'),
+        date_ob: joiDate
+          .date()
+          .format('DD-MM-YYYY')
+          .raw()
+          .greater(new Date('01-01-1950'))
+          .max('01-01-2007')
+          .required()
+          .label('Date Of Birth'),
+        gender: joi.string().valid('L', 'P').required().label('Gender'),
+        blood_type: joi
+          .string()
+          .valid('A', 'B', 'AB', 'O')
+          .required()
+          .label('Blood Type'),
+        address: joi.string().max(50).required().label('Address'),
+      },
+      phone_number: joi
         .string()
-        .min(6)
-        .max(32)
+        .regex(/^\d{4}-\d{4}-\d{4}$/)
         .required()
-        .label('Account Name'),
-      account_email: joi.string().email().required().label('Account Email'),
+        .label('Phone Number'),
       balance: joi
         .number()
         .integer()
         .positive()
         .greater(99999)
         .required()
-        .label('Account Balance'),
-      account_pin: joiPassword
+        .label('Balance'),
+      pin: joiPassword
         .string()
-        .noWhiteSpaces()
+        .regex(/^[0-9]{6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account Pin'),
-      account_pin_confirm: joi.string().required().label('Pin Confirmations'),
+        .label('Pin'),
+      pin_confirmation: joi.ref('pin'),
+      access_code: joiPassword
+        .string()
+        .minOfNumeric(1)
+        .regex(/^[a-z]{1,6}[0-9]{1,6}$/)
+        .min(6)
+        .max(6)
+        .required()
+        .label('Access Code'),
+      access_code_confirmation: joi.ref('access_code'),
     },
   },
   //For route withdrawMoney & depositMoney
@@ -36,90 +70,125 @@ module.exports = {
         .number()
         .integer()
         .positive()
+        .greater(19999)
         .required()
-        .label('Account Balance'),
-      account_pin: joiPassword
+        .label('Balance'),
+      pin: joiPassword
         .string()
-        .noWhiteSpaces()
+        .regex(/^[0-9]{6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account Pin'),
+        .label('Pin'),
     },
   },
-  //For route check balance & delete account
+  //For route check profil & delete account
   checkDelete: {
     body: {
-      account_pin: joiPassword
+      pin: joiPassword
         .string()
-        .noWhiteSpaces()
+        .regex(/^[0-9]{6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account Pin'),
+        .label('Pin'),
     },
   },
 
   changePin: {
     body: {
-      account_pin: joiPassword
+      pin: joiPassword
         .string()
-        .noWhiteSpaces()
+        .regex(/^[0-9]{6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account Pin'),
-      account_pin_new: joiPassword
+        .label('Pin'),
+      pin_new: joiPassword
         .string()
-        .noWhiteSpaces()
+        .regex(/^[0-9]{6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account New Pin'),
-      account_pin_new_confirm: joiPassword
+        .label('New Pin'),
+      pin_new_confirm: joi.ref('pin_new'),
+    },
+  },
+
+  changeAccessCode: {
+    body: {
+      access_code: joiPassword
         .string()
-        .noWhiteSpaces()
+        .minOfNumeric(1)
+        .regex(/^[a-z]{1,6}[0-9]{1,6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account New pin confirmation'),
+        .label('Access Code'),
+      access_code_new: joiPassword
+        .string()
+        .minOfNumeric(1)
+        .regex(/^[a-z]{1,6}[0-9]{1,6}$/)
+        .min(6)
+        .max(6)
+        .required()
+        .label('Access Code'),
+      access_code_new_confirm: joi.ref('access_code_new'),
+    },
+  },
+
+  changeProfile: {
+    body: {
+      name: joi.string().min(6).max(32).required().label('Name').messages({
+        'string.min': 'Name minimum 6 length',
+        'string.max': 'Name maximum 32 length',
+        'string.required': 'You must write your name.',
+      }),
+      email: joi.string().email().required().label('Email'),
+      phone_number: joi
+        .string()
+        .regex(/^\d{4}-\d{4}-\d{4}$/)
+        .required()
+        .label('Phone Number'),
     },
   },
 
   transferMoney: {
     body: {
-      account_name_receiver: joi
+      account_number_receiver: joi
         .string()
-        .min(6)
-        .max(32)
+        .min(4)
+        .max(4)
         .required()
-        .label('Account Name'),
+        .label('Account Number Receiver'),
       balance: joi
         .number()
         .integer()
         .positive()
+        .greater(19999)
         .required()
-        .label('Account Balance'),
-      account_pin: joiPassword
+        .label('Balance'),
+      pin: joiPassword
         .string()
-        .noWhiteSpaces()
+        .regex(/^[0-9]{6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account Pin'),
+        .label('Pin'),
     },
   },
 
   login: {
     body: {
-      account_email: joi.string().email().required().label('Account Email'),
-      account_pin: joiPassword
+      email: joi.string().email().required().label('Account Email'),
+      access_code: joiPassword
         .string()
-        .noWhiteSpaces()
+        .minOfNumeric(1)
+        .regex(/^[a-z]{1,6}[0-9]{1,6}$/)
         .min(6)
         .max(6)
         .required()
-        .label('Account Pin'),
+        .label('Access Code'),
     },
   },
 
@@ -127,7 +196,7 @@ module.exports = {
     query: {
       page_number: joi.number().integer().positive().default(0),
       page_size: joi.number().integer().positive().default(0),
-      sort: joi.string().default(':1'),
+      sort: joi.string().default('account_number:asc'),
       search: joi.string().default(':'),
     },
   },

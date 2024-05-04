@@ -4,53 +4,38 @@ const { User } = require('../../../models');
  * Get a list of users with pagination
  * @param {number} page_number - Page Number
  * @param {number} page_size - Page Size
- * @param {string} search_word - Search
- * @param {string} sort_split - Sort
+ * @param {string} search - Search
+ * @param {string} sort - Sort
  * @returns {Promise}
  */
-async function getUsersPagination(
-  page_number,
-  page_size,
-  search_word,
-  sort_split
-) {
+async function getUsersPagination(page_number, page_size, search, sort) {
   if (
-    search_word[0].length > 0 &&
-    search_word[1].length > 0 &&
+    search[0].length > 0 &&
+    search[1].length > 0 &&
     page_number > 0 &&
     page_size > 0
   ) {
     var results = User.find({
-      $or: [
-        { name: { $regex: search_word[1] } },
-        { email: { $regex: search_word[1] } },
-      ],
+      $or: [{ name: { $regex: search[1] } }, { email: { $regex: search[1] } }],
     })
-      .sort([sort_split])
+      .sort([sort])
       .skip((page_number - 1) * page_size)
       .limit(page_size);
   } else if (
-    search_word[0].length > 0 &&
-    search_word[1].length > 0 &&
+    search[0].length > 0 &&
+    search[1].length > 0 &&
     ((page_number == 0 && page_size == 0) || page_number > 0 || page_size > 0)
   ) {
     var results = User.find({
-      $or: [
-        { name: { $regex: search_word[1] } },
-        { email: { $regex: search_word[1] } },
-      ],
-    }).sort([sort_split]);
-  } else if (search_word[0].length > 0 && search_word[1].length > 0) {
-    // jika hanya search yang diisi (sort & page_number & page_size tidak diisi)
+      $or: [{ name: { $regex: search[1] } }, { email: { $regex: search[1] } }],
+    }).sort([sort]);
+  } else if (search[0].length > 0 && search[1].length > 0) {
     var results = User.find({
-      $or: [
-        { name: { $regex: search_word[1] } },
-        { email: { $regex: search_word[1] } },
-      ],
+      $or: [{ name: { $regex: search[1] } }, { email: { $regex: search[1] } }],
     });
   } else if (page_number > 0 && page_size > 0) {
     var results = User.find()
-      .sort([sort_split])
+      .sort([sort])
       .skip((page_number - 1) * page_size)
       .limit(page_size);
   } else if (
@@ -58,7 +43,7 @@ async function getUsersPagination(
     page_number > 0 ||
     page_size > 0
   ) {
-    var results = User.find().sort([sort_split]);
+    var results = User.find().sort([sort]);
   } else {
     // jika page_number, page_size dan sort tidak diisi
     var results = User.find();
@@ -76,16 +61,13 @@ async function getCountUsers() {
 }
 
 /**
- * Get a total of users match email
- * @param {string} search_word
+ * Get a total of users match search
+ * @param {string} search
  * @returns {Promise}
  */
-async function getCountUsersSearch(search_word) {
+async function getCountUsersSearch(search) {
   return User.find({
-    $or: [
-      { name: { $regex: search_word[1] } },
-      { email: { $regex: search_word[1] } },
-    ],
+    $or: [{ name: { $regex: search[1] } }, { email: { $regex: search[1] } }],
   }).count();
 }
 

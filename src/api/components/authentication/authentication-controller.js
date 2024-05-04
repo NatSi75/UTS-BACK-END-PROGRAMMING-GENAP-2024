@@ -29,7 +29,7 @@ async function login(request, response, next) {
         authenticationServices.attemptLogin(false, true);
       } else if (!loginSuccess && dateLogin[0].temp == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
-        await authenticationServices.createBlock(
+        const coba = await authenticationServices.createBlock(
           email,
           dateLogin[1].hours,
           dateLogin[2].minutes
@@ -56,13 +56,13 @@ async function login(request, response, next) {
       const detailUser =
         await authenticationServices.getDetailEmailBlock(email);
       if (
-        (detailUser.minutes <= dateNow[4].minutes &&
-          detailUser.hours <= dateNow[3].hours) ||
-        detailUser.hours <= dateNow[3].hours
+        (detailUser.hours <= dateNow[3].hours &&
+          detailUser.minutes <= dateNow[4].minutes) ||
+        (detailUser.hours < dateNow[3].hours &&
+          detailUser.minutes >= dateNow[4].minutes)
       ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
         //maka dia boleh login dan menghilangkan dia dari list block
-        await authenticationServices.deleteBlock(email);
         // Check login credentials
         const loginSuccess = await authenticationServices.checkLoginCredentials(
           email,
@@ -70,8 +70,10 @@ async function login(request, response, next) {
         );
 
         if (loginSuccess) {
+          authenticationServices.deleteBlock(email);
           authenticationServices.attemptLogin(false, true);
         } else if (!loginSuccess) {
+          console.log('taiii1');
           throw errorResponder(
             errorTypes.INVALID_CREDENTIALS,
             'Wrong email or password',
@@ -79,23 +81,15 @@ async function login(request, response, next) {
           );
         }
         return response.status(200).json(loginSuccess);
-      } else if (
-        detailUser.minutes > dateNow[4].minutes ||
-        detailUser.hours > dateNow[3].hours
-      ) {
-        console.log(detailUser.minutes);
-        console.log(detailUser.hours);
-        console.log(dateNow[4].minutes);
-        console.log(dateNow[3].hours);
+      } else {
         //Jika waktu menunggu user lebih besar dari waktu sekarang
         //maka dia tidak boleh login dan harus menunggu
         var waitingTime =
           (detailUser.hours - dateNow[3].hours) * 60 +
-          detailUser.minutes -
-          dateNow[4].minutes;
+          (detailUser.minutes - dateNow[4].minutes);
         throw errorResponder(
           errorTypes.FORBIDDEN,
-          `Too many failed login attempts, Waiting time ${waitingTime} minutes`,
+          `Too many failed login attempts, Waiting time ${Math.abs(waitingTime)} minutes`,
           `${authenticationServices.stringErrorLogin(email, dateLogin[0].temp, true)}`
         );
       }

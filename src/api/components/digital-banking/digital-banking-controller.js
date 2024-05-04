@@ -55,20 +55,19 @@ async function getAccounts(request, response, next) {
  */
 async function login(request, response, next) {
   try {
-    const { account_email, account_pin } = request.body;
+    const { email, access_code } = request.body;
     //Waktu sekarang
     const dateNow = digitalBankingService.getDate();
     //Waktu account login
     const dateLogin = digitalBankingService.attemptLogin(false, false);
 
-    const successCheckBlock =
-      await digitalBankingService.checkBlock(account_email);
+    const successCheckBlock = await digitalBankingService.checkBlock(email);
     if (successCheckBlock == false) {
       // Jika email account nggak ada di list block
       // Check login credentials
       const loginSuccess = await digitalBankingService.checkLoginCredentials(
-        account_email,
-        account_pin
+        email,
+        access_code
       );
 
       if (loginSuccess) {
@@ -76,58 +75,61 @@ async function login(request, response, next) {
       } else if (!loginSuccess && dateLogin[0].temp == 5) {
         //Jika attempt sudah lima kali, maka akan dimasukan ke list block
         await digitalBankingService.createBlock(
-          account_email,
+          email,
           dateLogin[1].hours,
           dateLogin[2].minutes
         );
 
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
-          `Wrong Email or Pin`,
-          `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, false)}`
+          `Wrong Email or Access Code`,
+          `${digitalBankingService.stringErrorLogin(email, dateLogin[0].temp, false)}`
         );
       } else if (!loginSuccess && dateLogin[0].temp < 5) {
         digitalBankingService.attemptLogin(true, false);
         //Selama attempt kurang dari 5, tidak akan dimasukan ke list block
         throw errorResponder(
           errorTypes.INVALID_CREDENTIALS,
-          `Wrong Email or Pin`,
-          `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, false)}`
+          `Wrong Email or Access Code`,
+          `${digitalBankingService.stringErrorLogin(email, dateLogin[0].temp, false)}`
         );
       }
 
-      return response.status(200).json(loginSuccess);
+      return response
+        .status(200)
+        .send(
+          `Success Login! \nID : ${loginSuccess.id} \nName : ${loginSuccess.name} \nEmail : ${loginSuccess.email} \nToken : ${loginSuccess.token}`
+        );
     } else if (successCheckBlock == true) {
       //Jika email account ada di list block
       const detailAccount =
-        await digitalBankingService.getDetailEmailBlock(account_email);
+        await digitalBankingService.getDetailEmailBlock(email);
       if (
-        detailAccount.minutes <= dateNow[4].minutes &&
-        detailAccount.hours <= dateNow[3].hours
+        (detailUser.hours <= dateNow[3].hours &&
+          detailUser.minutes <= dateNow[4].minutes) ||
+        (detailUser.hours < dateNow[3].hours &&
+          detailUser.minutes >= dateNow[4].minutes)
       ) {
         //Jika waktu menunggu user lebih kecil atau sama dengan waktu sekarang
         //maka dia boleh login dan menghilangkan dia dari list block
-        await digitalBankingService.deleteBlock(account_email);
         // Check login credentials
         const loginSuccess = await digitalBankingService.checkLoginCredentials(
-          account_email,
-          account_pin
+          email,
+          access_code
         );
 
         if (loginSuccess) {
+          digitalBankingService.deleteBlock(email);
           digitalBankingService.attemptLogin(false, true);
         } else if (!loginSuccess) {
           throw errorResponder(
             errorTypes.INVALID_CREDENTIALS,
-            'Wrong Email or Pin',
-            `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, false)}`
+            'Wrong Email or Access Code',
+            `${digitalBankingService.stringErrorLogin(email, dateLogin[0].temp, false)}`
           );
         }
         return response.status(200).json(loginSuccess);
-      } else if (
-        detailAccount.minutes > dateNow[4].minutes ||
-        detailAccount.hours > dateNow[3].hours
-      ) {
+      } else {
         //Jika waktu menunggu account lebih besar dari waktu sekarang
         //maka dia tidak boleh login dan harus menunggu
         var waitingTime =
@@ -136,7 +138,7 @@ async function login(request, response, next) {
         throw errorResponder(
           errorTypes.FORBIDDEN,
           `Too many failed login attempts, Waiting time ${waitingTime} minutes`,
-          `${digitalBankingService.stringErrorLogin(account_email, dateLogin[0].temp, true)}`
+          `${digitalBankingService.stringErrorLogin(email, dateLogin[0].temp, true)}`
         );
       }
     }
@@ -156,34 +158,45 @@ async function login(request, response, next) {
 async function createNewAccount(request, response, next) {
   try {
     const {
-      account_name,
-      account_email,
+      name,
+      email,
+      ktp,
+      phone_number,
       balance,
-      account_pin,
-      account_pin_confirm,
+      pin,
+      pin_confirmation,
+      access_code,
+      access_code_confirmation,
     } = request.body;
 
-    // Check confirmation password
-    if (account_pin !== account_pin_confirm) {
+    // Check confirmation pin
+    if (pin !== pin_confirmation) {
       throw errorResponder(
-        errorTypes.INVALID_PASSWORD,
-        'Account Pin confirmation mismatched'
+        errorTypes.INVALID_PIN,
+        'Pin confirmation mismatched'
       );
     }
 
-    // Account name must be unique
-    const nameIsRegistered =
-      await digitalBankingService.nameIsRegistered(account_name);
+    // Check confirmation access code
+    if (access_code !== access_code_confirmation) {
+      throw errorResponder(
+        errorTypes.INVALID_ACCESS_CODE,
+        'Access code confirmation mismatched'
+      );
+    }
+
+    // Name must be unique
+    const nameIsRegistered = await digitalBankingService.nameIsRegistered(name);
     if (nameIsRegistered) {
       throw errorResponder(
         errorTypes.NAME_ALREADY_TAKEN,
-        'Account Name is already registered'
+        'Name is already registered'
       );
     }
 
-    // Account email must be unique
+    // Email must be unique
     const emailIsRegistered =
-      await digitalBankingService.emailIsRegistered(account_email);
+      await digitalBankingService.emailIsRegistered(email);
     if (emailIsRegistered) {
       throw errorResponder(
         errorTypes.EMAIL_ALREADY_TAKEN,
@@ -191,12 +204,20 @@ async function createNewAccount(request, response, next) {
       );
     }
 
+    // Create account number
+    const account_number = await digitalBankingService.createAccountNumber();
+
     const success = await digitalBankingService.createNewAccount(
-      account_name,
-      account_email,
+      account_number,
+      name,
+      email,
+      ktp,
+      phone_number,
       balance,
-      account_pin
+      pin,
+      access_code
     );
+
     if (!success) {
       throw errorResponder(
         errorTypes.UNPROCESSABLE_ENTITY,
@@ -204,7 +225,11 @@ async function createNewAccount(request, response, next) {
       );
     }
 
-    return response.status(200).json({ account_name, account_email, balance });
+    return response
+      .status(200)
+      .send(
+        `Success Create New Account! \nAccount Number : ${account_number} \nName : ${name} \nEmail : ${email} \nPhone Number : ${phone_number}`
+      );
   } catch (error) {
     return next(error);
   }
@@ -217,29 +242,418 @@ async function createNewAccount(request, response, next) {
  * @param {object} next - Express route middlewares
  * @returns {object} Response object or pass an error to the next route
  */
-async function getAccount(request, response, next) {
+async function checkBalance(request, response, next) {
+  try {
+    const { id } = request.params;
+    //Waktu sekarang
+    const dateNow = digitalBankingService.getDate();
+    const successId = await digitalBankingService.idIsRegistered;
+    if (!successId) {
+      throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'Account None');
+    }
+    const account = await digitalBankingService.getAccount(id);
+    return response
+      .status(200)
+      .send(
+        `Info Saldo \n${dateNow[2].date}/${dateNow[1].month} ${dateNow[3].hours}:${dateNow[4].minutes}:${dateNow[5].seconds}\n${account[0].account_number} Rp.${account[0].balance}`
+      );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle check profile account request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function checkProfile(request, response, next) {
+  try {
+    const { id } = request.params;
+    const successId = await digitalBankingService.idIsRegistered;
+    if (!successId) {
+      throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'Account None');
+    }
+    const account = await digitalBankingService.getAccount(id);
+    return response
+      .status(200)
+      .send(
+        `Profile \nName : ${account[0].name} \nEmail : ${account[0].email} \nPhone Number : ${account[0].phone_number}`
+      );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle change pin request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function changePin(request, response, next) {
   try {
     const id = request.params.id;
-    const account_pin = request.body.account_pin;
+    const { pin, pin_new, pin_new_confirm } = request.body;
 
-    // Confirmation
+    // Check pin confirmation
+    if (pin_new !== pin_new_confirm) {
+      throw errorResponder(
+        errorTypes.INVALID_PIN,
+        'Pin confirmation mismatched'
+      );
+    }
+
+    // Check old pin
+    if (!(await digitalBankingService.checkPin(id, pin))) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const changeSuccess = await digitalBankingService.changePin(id, pin_new);
+
+    if (!changeSuccess) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to change pin'
+      );
+    }
+
+    return response.status(200).send(`Success Change Pin!`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle change access code request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function changeAccessCode(request, response, next) {
+  try {
+    const id = request.params.id;
+    const { access_code, access_code_new, access_code_new_confirm } =
+      request.body;
+
+    // Check pin confirmation
+    if (access_code_new !== access_code_new_confirm) {
+      throw errorResponder(
+        errorTypes.INVALID_PIN,
+        'Access code confirmation mismatched'
+      );
+    }
+
+    // Check old pin
+    if (!(await digitalBankingService.checkAccessCode(id, access_code))) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong access code');
+    }
+
+    const changeSuccess = await digitalBankingService.changeAccessCode(
+      id,
+      access_code_new
+    );
+
+    if (!changeSuccess) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to change access code'
+      );
+    }
+
+    return response.status(200).send(`Success Change Access Code!`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle change profile request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function changeProfile(request, response, next) {
+  try {
+    const id = request.params.id;
+    const { name, email, phone_number } = request.body;
+
+    // Name must be unique
+    const nameIsRegistered = await digitalBankingService.nameIsRegistered(name);
+    if (nameIsRegistered) {
+      throw errorResponder(
+        errorTypes.NAME_ALREADY_TAKEN,
+        'Name is already registered'
+      );
+    }
+
+    // Email must be unique
+    const emailIsRegistered =
+      await digitalBankingService.emailIsRegistered(email);
+    if (emailIsRegistered) {
+      throw errorResponder(
+        errorTypes.EMAIL_ALREADY_TAKEN,
+        'Email is already registered'
+      );
+    }
+
+    const changeSuccess = await digitalBankingService.changeProfile(
+      id,
+      name,
+      email,
+      phone_number
+    );
+
+    if (!changeSuccess) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to change profile'
+      );
+    }
+
+    return response.status(200).send(`Success Change Profile!`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle withdraw money account request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function withdrawMoney(request, response, next) {
+  try {
+    const id = request.params.id;
+    const { balance, pin } = request.body;
+    //Waktu sekarang
+    const dateNow = digitalBankingService.getDate();
+
+    /// Confirmation
     const loginSuccess = await digitalBankingService.checkPinCredentials(
       id,
-      account_pin
+      pin
     );
 
     if (!loginSuccess) {
       throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
     }
 
-    const success = await digitalBankingService.idIsRegistered;
-    if (!success) {
+    const success = await digitalBankingService.withdrawMoney(id, balance);
+    if (success) {
+      digitalBankingService.transaction(id, balance, 'Withdraw Money', dateNow);
+    } else if (!success) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to withdraw money'
+      );
+    }
+
+    return response
+      .status(200)
+      .send(
+        `Success Withdraw Money! \n${dateNow[2].date}/${dateNow[1].month} ${dateNow[3].hours}:${dateNow[4].minutes}:${dateNow[5].seconds}`
+      );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle deposit money account request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function depositMoney(request, response, next) {
+  try {
+    const id = request.params.id;
+    const { balance, pin } = request.body;
+    //Waktu sekarang
+    const dateNow = digitalBankingService.getDate();
+
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
+      id,
+      pin
+    );
+
+    if (!loginSuccess) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const success = await digitalBankingService.depositMoney(id, balance);
+    if (success) {
+      digitalBankingService.transaction(id, balance, 'Deposit Money', dateNow);
+    } else if (!success) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to deposit money'
+      );
+    }
+
+    return response
+      .status(200)
+      .send(
+        `Success Deposit Money! \n${dateNow[2].date}/${dateNow[1].month} ${dateNow[3].hours}:${dateNow[4].minutes}:${dateNow[5].seconds}`
+      );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle withdraw money account request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function transferMoney(request, response, next) {
+  try {
+    const id = request.params.id;
+    const { account_number_receiver, balance, pin } = request.body;
+    //Waktu sekarang
+    const dateNow = digitalBankingService.getDate();
+
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
+      id,
+      pin
+    );
+
+    if (!loginSuccess) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const account = await digitalBankingService.getAccountByAccountNumber(
+      account_number_receiver
+    );
+
+    if (!account) {
+      throw errorResponder(
+        errorTypes.INVALID_ACCOUNT_NUMBER,
+        'Account number not found.'
+      );
+    }
+
+    const success = await digitalBankingService.transferMoney(
+      id,
+      account_number_receiver,
+      balance
+    );
+
+    if (success) {
+      digitalBankingService.transactionTransferMoney(
+        id,
+        account_number_receiver,
+        balance,
+        'Transfer Money',
+        dateNow
+      );
+    } else if (!success) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to transfer money'
+      );
+    }
+
+    return response
+      .status(200)
+      .send(
+        `Success Transfer Money to ${account_number_receiver}! \n${dateNow[2].date}/${dateNow[1].month} ${dateNow[3].hours}:${dateNow[4].minutes}:${dateNow[5].seconds}`
+      );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle history transaction request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function historyTransaction(request, response, next) {
+  try {
+    const { id } = request.params;
+    const { pin } = request.body;
+    const successId = await digitalBankingService.idIsRegistered;
+    if (!successId) {
       throw errorResponder(errorTypes.UNPROCESSABLE_ENTITY, 'Account None');
     }
 
-    const account = await digitalBankingService.getAccount(id);
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
+      id,
+      pin
+    );
 
-    return response.status(200).json(account);
+    if (!loginSuccess) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const account = await digitalBankingService.historyTransaction(id);
+    var data = [];
+    if (account.length == 0) {
+      data = `None History Transaction.`;
+    } else {
+      for (let i = 1; i <= account.length; i++) {
+        data.push({
+          Transaction: i,
+          Date: account[i - 1].date,
+          Type: account[i - 1].type,
+          Balance: account[i - 1].balance,
+        });
+      }
+    }
+
+    return response.status(200).send(data);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Handle delete history transaction request
+ * @param {object} request - Express request object
+ * @param {object} response - Express response object
+ * @param {object} next - Express route middlewares
+ * @returns {object} Response object or pass an error to the next route
+ */
+async function deleteHistoryTransaction(request, response, next) {
+  try {
+    const id = request.params.id;
+    const pin = request.body.pin;
+
+    // Confirmation
+    const loginSuccess = await digitalBankingService.checkPinCredentials(
+      id,
+      pin
+    );
+
+    if (!loginSuccess) {
+      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
+    }
+
+    const success = await digitalBankingService.deleteHistoryTransaction(id);
+    if (!success) {
+      throw errorResponder(
+        errorTypes.UNPROCESSABLE_ENTITY,
+        'Failed to delete history transaction'
+      );
+    }
+
+    return response.status(200).send('Success Delete History Transaction!');
   } catch (error) {
     return next(error);
   }
@@ -255,12 +669,12 @@ async function getAccount(request, response, next) {
 async function deleteAccount(request, response, next) {
   try {
     const id = request.params.id;
-    const account_pin = request.body.account_pin;
+    const pin = request.body.pin;
 
     // Confirmation
     const loginSuccess = await digitalBankingService.checkPinCredentials(
       id,
-      account_pin
+      pin
     );
 
     if (!loginSuccess) {
@@ -281,167 +695,6 @@ async function deleteAccount(request, response, next) {
   }
 }
 
-/**
- * Handle change account pin request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function changePin(request, response, next) {
-  try {
-    const id = request.params.id;
-    const { account_pin, account_pin_new, account_pin_new_confirm } =
-      request.body;
-
-    // Check pin confirmation
-    if (account_pin_new !== account_pin_new_confirm) {
-      throw errorResponder(
-        errorTypes.INVALID_PIN,
-        'Pin confirmation mismatched'
-      );
-    }
-
-    // Check old pin
-    if (!(await digitalBankingService.checkPin(id, account_pin))) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
-    }
-
-    const changeSuccess = await digitalBankingService.changePin(
-      id,
-      account_pin_new
-    );
-
-    if (!changeSuccess) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to change pin'
-      );
-    }
-
-    return response.status(200).json({ id });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
- * Handle withdraw money account request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function withdrawMoney(request, response, next) {
-  try {
-    const id = request.params.id;
-    const { balance, account_pin } = request.body;
-
-    /// Confirmation
-    const loginSuccess = await digitalBankingService.checkPinCredentials(
-      id,
-      account_pin
-    );
-
-    if (!loginSuccess) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
-    }
-
-    const success = await digitalBankingService.withdrawMoney(id, balance);
-    if (!success) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to withdraw money'
-      );
-    }
-
-    const account = await digitalBankingService.getAccount(id);
-
-    return response.status(200).json({ account });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
- * Handle deposit money account request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function depositMoney(request, response, next) {
-  try {
-    const id = request.params.id;
-    const { balance, account_pin } = request.body;
-
-    // Confirmation
-    const loginSuccess = await digitalBankingService.checkPinCredentials(
-      id,
-      account_pin
-    );
-
-    if (!loginSuccess) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
-    }
-
-    const success = await digitalBankingService.depositMoney(id, balance);
-    if (!success) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to withdraw money'
-      );
-    }
-
-    const account = await digitalBankingService.getAccount(id);
-
-    return response.status(200).json({ account });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-/**
- * Handle withdraw money account request
- * @param {object} request - Express request object
- * @param {object} response - Express response object
- * @param {object} next - Express route middlewares
- * @returns {object} Response object or pass an error to the next route
- */
-async function transferMoney(request, response, next) {
-  try {
-    const id = request.params.id;
-    const { account_name_receiver, balance, account_pin } = request.body;
-
-    // Confirmation
-    const loginSuccess = await digitalBankingService.checkPinCredentials(
-      id,
-      account_pin
-    );
-
-    if (!loginSuccess) {
-      throw errorResponder(errorTypes.INVALID_CREDENTIALS, 'Wrong pin');
-    }
-
-    const success = await digitalBankingService.transferMoney(
-      id,
-      account_name_receiver,
-      balance
-    );
-
-    if (!success) {
-      throw errorResponder(
-        errorTypes.UNPROCESSABLE_ENTITY,
-        'Failed to transfer money'
-      );
-    }
-
-    return response.status(200).json({ id });
-  } catch (error) {
-    return next(error);
-  }
-}
-
 module.exports = {
   /* PENERENAPAN SOAL NO.1 */
   getAccounts,
@@ -451,10 +704,15 @@ module.exports = {
 
   /* SOAL NO.3 */
   createNewAccount,
-  getAccount,
-  deleteAccount,
+  checkBalance,
+  checkProfile,
   changePin,
+  changeAccessCode,
+  changeProfile,
   withdrawMoney,
   depositMoney,
   transferMoney,
+  historyTransaction,
+  deleteHistoryTransaction,
+  deleteAccount,
 };

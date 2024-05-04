@@ -1,5 +1,9 @@
 const digitalBankingRepository = require('./digital-banking-repository');
 const { hashPin, pinMatched } = require('../../../utils/pin');
+const {
+  hashAccessCode,
+  accessCodeMatched,
+} = require('../../../utils/access-code');
 const { generateTokenAccount } = require('../../../utils/session-token');
 const { floor } = require('lodash');
 
@@ -13,56 +17,23 @@ const { floor } = require('lodash');
  * @returns {Object}
  */
 async function getAccounts(page_number, page_size, sort, search) {
-  var accounts;
-  var tempPage_number = page_number;
+  // Split to array with 2 index [0] and [1]
+  sort = sort.split(':');
+  search = search.split(':');
 
-  // Variable check
-  var checkName = false;
-  var checkEmail = false;
+  const accounts = await digitalBankingRepository.getAccountsPagination(
+    page_number,
+    page_size,
+    search,
+    sort
+  );
 
-  // 'email:test' to ['email','test']
-  var sort_split = sort.split(':');
-  var search_split = search.split(':');
-
-  // change asc to 1 or desc to -1
-  if (sort_split[1] == 'asc') {
-    sort_split[1] = 1;
-  } else if (sort_split[1] == 'desc') {
-    sort_split[1] = -1;
-  }
-
-  // conditional field name
-  if (search_word[0] == 'account_name') {
-    checkName = true;
-    accounts = await digitalBankingRepository.getAccountsName(
-      page_number,
-      page_size,
-      sort_split,
-      search_split
-    );
-  } else if (search_word[0] == 'account_email') {
-    checkEmail = true;
-    accounts = await digitalBankingRepository.getAccountsEmail(
-      page_number,
-      page_size,
-      sort_split,
-      search_split
-    );
-  } else {
-    // jika search tidak diisi
-    accounts = await digitalBankingRepository.getAccounts(
-      page_number,
-      page_size,
-      sort_split
-    );
-  }
-
-  // Get total user (document) in collection 'accounts'
-  const totalDocuments = await digitalBankingRepository.getCountAccounts();
-  const totalAccountName =
-    await digitalBankingRepository.getCountAccountsName(search_split);
-  const totalAccountEmail =
-    await digitalBankingRepository.getCountAccountsEmail(search_split);
+  // Get total account (document) in collection 'accounts'
+  const documents = await digitalBankingRepository.getCountAccounts();
+  const documentsSearch =
+    await digitalBankingRepository.getCountAccountsSearch(search);
+  const totalDocuments = floor(documents / page_size);
+  const totalDocumentsSearch = floor(documentsSearch / page_size);
 
   // Create variable and set value total pages
   if (
@@ -70,21 +41,24 @@ async function getAccounts(page_number, page_size, sort, search) {
     (page_number == 0 && page_size == 0)
   ) {
     var total_pages = 1;
-  } else if (page_size > page_number && checkName == true) {
-    var total_pages = floor(totalAccountName / page_size) + 1;
-  } else if (page_size > page_number && checkEmail == true) {
-    var total_pages = floor(totalAccountEmail / page_size) + 1;
-  } else if (page_size < page_number && checkName == true) {
-    var total_pages = floor(totalAccountName / page_size) + 1;
-  } else if (page_size < page_number && checkEmail == true) {
-    var total_pages = floor(totalAccountEmail / page_size) + 1;
-  } else if (page_number > page_size) {
-    var total_pages = floor(totalDocuments / page_size) + 1;
-  } else if (page_number < page_size) {
-    var total_pages = floor(totalDocuments / page_size) + 1;
+  } else {
+    if (sort[0].length > 0) {
+      if (totalDocumentsSearch == documentsSearch) {
+        var total_pages = totalDocumentsSearch;
+      } else {
+        var total_pages = totalDocumentsSearch + 1;
+      }
+    } else {
+      if (totalDocuments == documents) {
+        var total_pages = totalDocuments;
+      } else {
+        var total_pages = totalDocuments + 1;
+      }
+    }
   }
 
   // Create variable and set value page_number_result & page_size_result for the result
+  var tempPage_number = page_number;
   var page_number_result = page_number;
   var page_size_result = page_size;
   if (
@@ -103,25 +77,12 @@ async function getAccounts(page_number, page_size, sort, search) {
     page_number += 1;
   }
 
-  // Create variable and set value has_next_page & has_previous_page
-  if (total_pages > page_number) {
-    var has_next_page = true;
-  } else {
-    var has_next_page = false;
-  }
-
-  if (page_number > 1 && page_number <= total_pages) {
-    var has_previous_page = true;
-  } else {
-    var has_previous_page = false;
-  }
-
   // Set value result
   const results = [];
   var data = [];
-  var mod = accounts.length % page_size;
-  var iterator = 0;
   if (tempPage_number == 0 && page_number == 1 && page_size > page_number) {
+    var mod = accounts.length % page_size;
+    var iterator = 0;
     // jika page_number tidak diisi dan page_size diisi
     // maka akan menampilkan semua halaman / semua data
     for (let j = 0; j < total_pages - 1; j += 1) {
@@ -151,8 +112,13 @@ async function getAccounts(page_number, page_size, sort, search) {
         iterator++;
         data.push({
           id: account.id,
-          account_name: account.account_name,
-          account_email: account.account_email,
+          account_number: account.account_number,
+          name: account.name,
+          email: account.email,
+          ktp: account.ktp,
+          phone_number: account.phone_number,
+          balance: account.balance,
+          created_at: account.created,
         });
       }
 
@@ -163,6 +129,49 @@ async function getAccounts(page_number, page_size, sort, search) {
       page_number++;
     }
 
+    if (mod > 0) {
+      if (total_pages > page_number) {
+        var has_next_page = true;
+      } else {
+        var has_next_page = false;
+      }
+
+      if (page_number > 1 && page_number <= total_pages) {
+        var has_previous_page = true;
+      } else {
+        var has_previous_page = false;
+      }
+
+      results.push({
+        page_number: page_number,
+        page_size: page_size,
+        count: mod,
+        total_pages: total_pages,
+        has_previous_page: has_previous_page,
+        has_next_page: has_next_page,
+      });
+
+      for (let i = 0; i < mod; i++) {
+        const account = accounts[iterator];
+        iterator++;
+        data.push({
+          id: account.id,
+          account_number: account.account_number,
+          name: account.name,
+          email: account.email,
+          ktp: account.ktp,
+          phone_number: account.phone_number,
+          balance: account.balance,
+          created_at: account.created,
+        });
+      }
+
+      results.push({
+        data: data,
+      });
+    }
+  } else {
+    // Create variable and set value has_next_page & has_previous_page
     if (total_pages > page_number) {
       var has_next_page = true;
     } else {
@@ -175,35 +184,17 @@ async function getAccounts(page_number, page_size, sort, search) {
       var has_previous_page = false;
     }
 
-    results.push({
-      page_number: page_number,
-      page_size: page_size,
-      count: mod,
-      total_pages: total_pages,
-      has_previous_page: has_previous_page,
-      has_next_page: has_next_page,
-    });
-
-    for (let i = 0; i < mod; i++) {
-      const account = accounts[iterator];
-      iterator++;
-      data.push({
-        id: account.id,
-        account_name: account.account_name,
-        account_email: account.account_email,
-      });
-    }
-
-    results.push({
-      data: data,
-    });
-  } else {
     for (let l = 0; l < accounts.length; l += 1) {
       const account = accounts[l];
       data.push({
         id: account.id,
-        account_name: account.account_name,
-        account_email: account.account_email,
+        account_number: account.account_number,
+        name: account.name,
+        email: account.email,
+        ktp: account.ktp,
+        phone_number: account.phone_number,
+        balance: account.balance,
+        created_at: account.created,
       });
     }
 
@@ -240,24 +231,26 @@ async function checkEmail(email) {
 }
 
 /**
- * Check email and pin for login.
- * @param {string} account_email - Email
- * @param {string} account_pin - Pin
- * @returns {object} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
+ * Check email and access code for login.
+ * @param {string} email - Email
+ * @param {string} access_code - Access Code
+ * @returns {Array} An object containing, among others, the JWT token if the email and password are matched. Otherwise returns null.
  */
-async function checkLoginCredentials(account_email, account_pin) {
-  const account =
-    await digitalBankingRepository.getAccountByEmail(account_email);
+async function checkLoginCredentials(email, access_code) {
+  const account = await digitalBankingRepository.getAccountByEmail(email);
   const accountPassword = account
-    ? account.account_pin
+    ? account.access_code
     : '<RANDOM_PASSWORD_FILLER>';
-  const pinChecked = await pinMatched(account_pin, accountPassword);
-  if (account && pinChecked) {
+  const accessCodeChecked = await accessCodeMatched(
+    access_code,
+    accountPassword
+  );
+  if (account && accessCodeChecked) {
     return {
-      account_email: account.account_email,
-      account_name: account.account_name,
-      account_id: account.id,
-      token: generateTokenAccount(account.account_email, account.id),
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      token: generateTokenAccount(account.email, account.id),
     };
   }
   return null;
@@ -384,7 +377,7 @@ async function createBlock(email, hours, minutes) {
  * @returns {boolean}
  */
 async function checkBlock(email) {
-  //Apakah user yang sedang login ada di list block
+  //Apakah email account yang sedang login ada di list block
   const accountBlock = await digitalBankingRepository.getEmail(email);
   if (!accountBlock) {
     return false;
@@ -425,22 +418,23 @@ async function deleteBlock(email) {
 /**
  * Get details account
  * @param {string} id - Account ID
- * @returns {boolean}
+ * @returns {Array}
  */
 async function getAccount(id) {
   const account = await digitalBankingRepository.getAccount(id);
   const data = [];
   if (account) {
     data.push({
-      id: account.id,
-      account_name: account.account_name,
-      account_email: account.account_email,
+      account_number: account.account_number,
+      name: account.name,
+      email: account.email,
+      phone_number: account.phone_number,
       balance: account.balance,
     });
     return data;
   }
 
-  return false;
+  return null;
 }
 
 /**
@@ -452,7 +446,7 @@ async function getAccountById(id) {
   try {
     await digitalBankingRepository.getAccount(id);
   } catch (err) {
-    return null;
+    return false;
   }
 
   return true;
@@ -474,34 +468,86 @@ async function getAccountByName(account_name) {
 }
 
 /**
+ * Check account by account number
+ * @param {string} account_number - Account Number Receiver
+ * @returns {boolean}
+ */
+async function getAccountByAccountNumber(account_number) {
+  try {
+    await digitalBankingRepository.getAccountByAccountNumber(account_number);
+  } catch (err) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Create new account
- * @param {string} account_name - Account Name
- * @param {string} account_email - Account Email
+ * @param {string} account_number - Account Number
+ * @param {string} name - Account Name
+ * @param {string} email - Account Email
+ * @param {Object} ktp - KTP
+ * @param {string} phone_number - Phone Number
  * @param {number} balance - Balance
- * @param {string} account_pin - Account Pin
+ * @param {string} pin - Account Pin
+ * @param {string} access_code - Access Code
  * @returns {boolean}
  */
 async function createNewAccount(
-  account_name,
-  account_email,
+  account_number,
+  name,
+  email,
+  ktp,
+  phone_number,
   balance,
-  account_pin
+  pin,
+  access_code
 ) {
   // Hash pin
-  const hashedPin = await hashPin(account_pin);
+  const hashedPin = await hashPin(pin);
+
+  // Hash access code
+  const hashedAccessCode = await hashAccessCode(access_code);
 
   try {
     await digitalBankingRepository.createNewAccount(
-      account_name,
-      account_email,
+      account_number,
+      name,
+      email,
+      ktp,
+      phone_number,
       balance,
-      hashedPin
+      hashedPin,
+      hashedAccessCode
     );
   } catch (err) {
-    return null;
+    return false;
   }
 
   return true;
+}
+
+var account_number_start = '000';
+/**
+ * Create account number
+ * @returns {string}
+ */
+async function createAccountNumber() {
+  const totalAccounts = (await digitalBankingRepository.getCountAccounts()) + 1;
+  const stringTotalAccounts = totalAccounts.toString();
+
+  if (totalAccounts > 0) {
+    if (totalAccounts > 9) {
+      account_number_start = '00';
+    } else if (totalAccounts > 99) {
+      account_number_start = '0';
+    } else if (totalAccounts > 999) {
+      account_number_start = '';
+    }
+    return account_number_start.concat(stringTotalAccounts);
+  } else {
+    return account_number_start.concat('1');
+  }
 }
 
 /**
@@ -528,11 +574,11 @@ async function deleteAccount(id) {
 
 /**
  * Check whether the account name is registered
- * @param {string} account_name - Account Name
+ * @param {string} name - Account Name
  * @returns {boolean}
  */
-async function nameIsRegistered(account_name) {
-  const account = await digitalBankingRepository.getAccountByName(account_name);
+async function nameIsRegistered(name) {
+  const account = await digitalBankingRepository.getAccountByName(name);
 
   if (account) {
     return true;
@@ -543,12 +589,11 @@ async function nameIsRegistered(account_name) {
 
 /**
  * Check whether the account email is registered
- * @param {string} account_email - Account Email
+ * @param {string} email - Account Email
  * @returns {boolean}
  */
-async function emailIsRegistered(account_email) {
-  const account =
-    await digitalBankingRepository.getAccountByEmail(account_email);
+async function emailIsRegistered(email) {
+  const account = await digitalBankingRepository.getAccountByEmail(email);
 
   if (account) {
     return true;
@@ -575,21 +620,25 @@ async function idIsRegistered(id) {
 /**
  * Check whether the pin is correct
  * @param {string} id - Account ID
- * @param {string} account_pin - Account Pin Old
+ * @param {string} pin - Account Pin Old
  * @returns {boolean}
  */
-async function checkPin(id, account_pin) {
+async function checkPin(id, pin) {
   const account = await digitalBankingRepository.getAccount(id);
-  return pinMatched(account_pin, account.account_pin);
+  if (account) {
+    return pinMatched(pin, account.pin);
+  } else {
+    return false;
+  }
 }
 
 /**
- * Change account pin
+ * Change pin
  * @param {string} id - Account ID
- * @param {string} account_pin_new - New Account Pin
+ * @param {string} pin_new - New Account Pin
  * @returns {boolean}
  */
-async function changePin(id, account_pin_new) {
+async function changePin(id, pin_new) {
   const account = await digitalBankingRepository.getAccount(id);
 
   // Check if account not found
@@ -597,7 +646,7 @@ async function changePin(id, account_pin_new) {
     return null;
   }
 
-  const hashedPin = await hashPin(account_pin_new);
+  const hashedPin = await hashPin(pin_new);
 
   const changeSuccess = await digitalBankingRepository.changePin(id, hashedPin);
 
@@ -609,22 +658,95 @@ async function changePin(id, account_pin_new) {
 }
 
 /**
- * Check id and pin for action.
+ * Check whether the access code is correct
  * @param {string} id - Account ID
- * @param {string} account_pin - Account Pin
- * @returns {object}
+ * @param {string} access_code - Account Access Code Old
+ * @returns {boolean}
  */
-async function checkPinCredentials(id, account_pin) {
+async function checkAccessCode(id, access_code) {
+  const account = await digitalBankingRepository.getAccount(id);
+  if (account) {
+    return accessCodeMatched(access_code, account.access_code);
+  } else {
+    return false;
+  }
+}
+
+/**
+ * Change access code
+ * @param {string} id - Account ID
+ * @param {string} access_code - New Access Code
+ * @returns {boolean}
+ */
+async function changeAccessCode(id, access_code) {
   const account = await digitalBankingRepository.getAccount(id);
 
-  const accountPin = account ? account.account_pin : '<RANDOM_PASSWORD_FILLER>';
-  const pinChecked = await pinMatched(account_pin, accountPin);
+  // Check if account not found
+  if (!account) {
+    return false;
+  }
+
+  const hashedAccessCode = await hashAccessCode(access_code);
+
+  const changeSuccess = await digitalBankingRepository.changeAccessCode(
+    id,
+    hashedAccessCode
+  );
+
+  if (!changeSuccess) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Change profile
+ * @param {string} id - Account ID
+ * @param {string} name - Name
+ * @param {string} email - Email
+ * @param {string} phone_number - Phone Number
+ * @returns {boolean}
+ */
+async function changeProfile(id, name, email, phone_number) {
+  const account = await digitalBankingRepository.getAccount(id);
+
+  // Check if account not found
+  if (!account) {
+    return false;
+  }
+
+  const changeSuccess = await digitalBankingRepository.changeProfile(
+    id,
+    name,
+    email,
+    phone_number
+  );
+
+  if (!changeSuccess) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Check id and pin for action.
+ * @param {string} id - Account ID
+ * @param {string} pin - Account Pin
+ * @returns {boolean}
+ */
+async function checkPinCredentials(id, pin) {
+  const account = await digitalBankingRepository.getAccount(id);
+
+  const accountPin = account ? account.pin : '<RANDOM_PASSWORD_FILLER>';
+  const pinChecked = await pinMatched(pin, accountPin);
 
   if (account && pinChecked) {
     return true;
   }
 
-  return null;
+  return false;
 }
 
 /**
@@ -680,18 +802,17 @@ async function depositMoney(id, balance) {
 /**
  * Transfer Money
  * @param {string} id - Account ID
- * @param {string} account_name_receiver - Account Name Receiver
+ * @param {string} account_number - Account Number Receiver
  * @param {string} balance - Amount of money
  * @returns {boolean}
  */
-async function transferMoney(id, account_name_receiver, balance) {
+async function transferMoney(id, account_number, balance) {
   const account_sender = await digitalBankingRepository.getAccount(id);
-  const account_receiver = await digitalBankingRepository.getAccountByName(
-    account_name_receiver
-  );
+  const account_receiver =
+    await digitalBankingRepository.getAccountByAccountNumber(account_number);
 
   if (!account_receiver) {
-    return null;
+    return false;
   }
 
   var new_balance_sender = account_sender.balance - balance;
@@ -703,15 +824,115 @@ async function transferMoney(id, account_name_receiver, balance) {
   );
 
   const changeAccountReceiver =
-    await digitalBankingRepository.updateAccountByName(
-      account_name_receiver,
+    await digitalBankingRepository.updateAccountByNumberAccount(
+      account_number,
       new_balance_receiver
     );
 
   if (!changeAccountSender) {
-    return null;
+    return false;
   } else if (!changeAccountReceiver) {
-    return null;
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * History Transaction for withdraw money and deposit money
+ * @param {string} id - Account ID
+ * @param {string} balance - Amount of money
+ * @param {string} type - Type
+ * @param {Array} date - Date
+ * @returns {boolean}
+ */
+async function transaction(id, balance, type, date) {
+  const dateString = `${date[2].date}/${date[1].month}/${date[0].year}`;
+  if (type == 'Deposit Money') {
+    var condition = true;
+  } else {
+    var condition = false;
+  }
+  const success = await digitalBankingRepository.updateAccountTransactionById(
+    id,
+    balance,
+    type,
+    dateString,
+    condition
+  );
+  if (success) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/**
+ * History Transaction for transfer money
+ * @param {string} id - Account ID
+ * @param {string} account_number - Account Number Receiver
+ * @param {string} balance - Amount of money
+ * @param {string} type - Type
+ * @param {Array} date - Date
+ * @returns {boolean}
+ */
+async function transactionTransferMoney(
+  id,
+  account_number,
+  balance,
+  type,
+  date
+) {
+  const dateString = `${date[2].date}/${date[1].month}/${date[0].year}`;
+  const successSender =
+    await digitalBankingRepository.updateAccountTransactionById(
+      id,
+      balance,
+      type,
+      dateString,
+      false
+    );
+  const successReceiver =
+    await digitalBankingRepository.updateAccountTransactionByAccountNumber(
+      account_number,
+      balance,
+      type,
+      dateString
+    );
+  if (successSender && successReceiver) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/**
+ * Get history transaction
+ * @param {string} id - Account ID
+ * @returns {Object}
+ */
+async function historyTransaction(id) {
+  const account = await digitalBankingRepository.getAccount(id);
+  return account.transaction;
+}
+
+/**
+ * Delete history transaction
+ * @param {string} id - Account ID
+ * @returns {boolean}
+ */
+async function deleteHistoryTransaction(id) {
+  const account = await digitalBankingRepository.getAccount(id);
+
+  // Account not found
+  if (!account) {
+    return false;
+  }
+
+  try {
+    await digitalBankingRepository.deleteHistoryTransaction(id);
+  } catch (err) {
+    return false;
   }
 
   return true;
@@ -736,15 +957,24 @@ module.exports = {
   getAccount,
   getAccountById,
   getAccountByName,
+  getAccountByAccountNumber,
   createNewAccount,
+  createAccountNumber,
   deleteAccount,
   nameIsRegistered,
   emailIsRegistered,
   idIsRegistered,
   checkPin,
   changePin,
+  checkAccessCode,
+  changeAccessCode,
+  changeProfile,
   checkPinCredentials,
   withdrawMoney,
   depositMoney,
   transferMoney,
+  transaction,
+  transactionTransferMoney,
+  historyTransaction,
+  deleteHistoryTransaction,
 };

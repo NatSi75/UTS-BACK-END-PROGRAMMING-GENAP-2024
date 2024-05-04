@@ -1,212 +1,90 @@
-const { lowerCase, trimStart } = require('lodash');
-const { Account, account, Block } = require('../../../models');
+const { Account, Block } = require('../../../models');
 
 /* PENERENAPAN SOAL NO.1 */
 /**
- * Get a list of accounts without search
+ * Get a list of accounts with pagination
  * @param {number} page_number - Page Number
  * @param {number} page_size - Page Size
- * @param {string} sort_split - Sort
+ * @param {string} search - Search
+ * @param {string} sort - Sort
  * @returns {Promise}
  */
-async function getAccounts(page_number, page_size, sort_split) {
-  // change to lower case and remove space
-  var sortTag = lowerCase(sort_split[0]).replace(/\s/g, '');
-
-  // Conditional Statement untuk page_number & page_size diisi
-  if (sortTag == 'account_name' && page_size > 0 && page_number > 0) {
-    // jika field key dari sort adalah 'name'
-    var results = await Account.find()
-      .sort({ account_name: sort_split[1], _id: sort_split[1] })
-      .skip((page_number - 1) * page_size)
-      .limit(page_size);
-  } else if (sortTag == 'account_email' && page_size > 0 && page_number > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await Account.find()
-      .sort({ account_email: sort_split[1], _id: sort_split[1] })
-      .skip((page_number - 1) * page_size)
-      .limit(page_size);
-  } else if (page_size > 0 && page_number > 0) {
-    // jika sort dan search tidak diisi
-    var results = await Account.find()
-      .skip((page_number - 1) * page_size)
-      .limit(page_size);
-  } else if (sortTag == 'account_name' && page_size == 0 && page_number == 0) {
-    // Conditional Statement untuk page_number & page_size tidak diisi atau salah satunya
-    // jika field key dari sort adalah 'name' dan page_number & page_size tidak diisi
-    var results = await Account.find().sort({
-      account_name: sort_split[1],
-      _id: sort_split[1],
-    });
-  } else if (sortTag == 'account_email' && page_size == 0 && page_number == 0) {
-    // jika field key dari sort adalah 'email' dan page_number & page_size tidak diisi
-    var results = await Account.find().sort({
-      account_email: sort_split[1],
-      _id: sort_split[1],
-    });
-  } else if ((sortTag == 'account_name' && page_size > 0) || page_number > 0) {
-    // jika field key dari sort adalah name dan antara page_number dengan page_size diisi
-    var results = await Account.find().sort({
-      account_name: sort_split[1],
-      _id: sort_split[1],
-    });
-  } else if ((sortTag == 'account_email' && page_size > 0) || page_number > 0) {
-    // jika field key dari sort adalah email dan antara page_number dengan page_size diisi
-    var results = await Account.find().sort({
-      account_email: sort_split[1],
-      _id: sort_split[1],
-    });
-  } else {
-    // jika page_number, page_size, sort dan search tidak diisi
-    var results = await Account.find();
-  }
-
-  return results;
-}
-
-/**
- * Get a list of Accounts with search 'name'
- * @param {number} page_number - Page Number
- * @param {number} page_size - Page Size
- * @param {string} sort_split - Sort
- * @param {string} search_word - Search
- * @returns {Promise}
- */
-async function getAccountsName(
-  page_number,
-  page_size,
-  sort_split,
-  search_word
-) {
-  // change to lower case and remove space
-  var sortTag = lowerCase(sort_split[0]).replace(/\s/g, '');
-
-  // Conditional Statement untuk page_number & page_size diisi
-  if (sortTag == 'account_name' && page_size > 0 && page_number > 0) {
-    // jika field key dari sort adalah 'name'
-    var results = await Account.find({
-      account_name: { $regex: trimStart(search_word[1]) },
+async function getAccountsPagination(page_number, page_size, search, sort) {
+  console.log(search[1]);
+  if (
+    search[0].length > 0 &&
+    search[1].length > 0 &&
+    page_number > 0 &&
+    page_size > 0
+  ) {
+    var results = Account.find({
+      $or: [
+        { account_number: { $regex: search[1] } },
+        { name: { $regex: search[1] } },
+        { email: { $regex: search[1] } },
+        { 'ktp.nik': { $regex: search[1] } },
+        { 'ktp.place_ob': { $regex: search[1] } },
+        { 'ktp.date_ob': { $regex: search[1] } },
+        { 'ktp.gender': { $regex: search[1] } },
+        { 'ktp.blood_type': { $regex: search[1] } },
+        { 'ktp.address': { $regex: search[1] } },
+        { phone_number: { $regex: search[1] } },
+      ],
     })
-      .sort({ account_name: sort_split[1], _id: sort_split[1] })
+      .sort([sort])
       .skip((page_number - 1) * page_size)
       .limit(page_size);
-  } else if (sortTag == 'account_email' && page_size > 0 && page_number > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await Account.find({
-      account_name: { $regex: trimStart(search_word[1]) },
-    })
-      .sort({ account_email: sort_split[1], _id: sort_split[1] })
-      .skip((page_number - 1) * page_size)
-      .limit(page_size);
-  } else if (sortTag == '' && page_size > 0 && page_number > 0) {
-    var results = await Account.find({
-      account_name: { $regex: trimStart(trimStart(search_word[1])) },
-    })
-      .skip((page_number - 1) * page_size)
-      .limit(page_size);
-  } else if (sortTag == 'account_name' && page_size == 0 && page_number == 0) {
-    // Conditional Statement untuk page_number & page_size tidak diisi
-    // jika field key dari sort adalah 'name'
-    var results = await Account.find({
-      account_name: { $regex: trimStart(search_word[1]) },
-    }).sort({ account_name: sort_split[1], _id: sort_split[1] });
-  } else if (sortTag == 'account_email' && page_size == 0 && page_number == 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await Account.find({
-      account_name: { $regex: trimStart(search_word[1]) },
-    }).sort({ account_email: sort_split[1], _id: sort_split[1] });
-  } else if ((sortTag == 'account_name' && page_size > 0) || page_number > 0) {
-    // Conditional Statement untuk salah satu dari page_number dan page_size yang tidak diisi
-    // jika field key dari sort adalah 'name'
-    var results = await Account.find({
-      account_name: { $regex: trimStart(search_word[1]) },
-    }).sort({ account_name: sort_split[1], _id: sort_split[1] });
-  } else if ((sortTag == 'account_email' && page_size > 0) || page_number > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await Account.find({
-      account_name: { $regex: trimStart(search_word[1]) },
-    }).sort({ account_email: sort_split[1], _id: sort_split[1] });
-  } else {
+  } else if (
+    search[0].length > 0 &&
+    search[1].length > 0 &&
+    ((page_number == 0 && page_size == 0) || page_number > 0 || page_size > 0)
+  ) {
+    var results = Account.find({
+      $or: [
+        { account_number: { $regex: search[1] } },
+        { name: { $regex: search[1] } },
+        { email: { $regex: search[1] } },
+        { 'ktp.nik': { $regex: search[1] } },
+        { 'ktp.place_ob': { $regex: search[1] } },
+        { 'ktp.date_ob': { $regex: search[1] } },
+        { 'ktp.gender': { $regex: search[1] } },
+        { 'ktp.blood_type': { $regex: search[1] } },
+        { 'ktp.address': { $regex: search[1] } },
+        { phone_number: { $regex: search[1] } },
+      ],
+    }).sort([sort]);
+  } else if (search[0].length > 0 && search[1].length > 0) {
     // jika hanya search yang diisi (sort & page_number & page_size tidak diisi)
-    // Jika hanya search dan page_size diisi (sort & page number tidak diisi)
-    // jika hanya search dan page_number yang diisi (sort & page size tidak diisi)
-    var results = await Account.find({
-      account_name: { $regex: trimStart(search_word[1]) },
+    var results = Account.find({
+      $or: [
+        { account_number: { $regex: search[1] } },
+        { name: { $regex: search[1] } },
+        { email: { $regex: search[1] } },
+        { 'ktp.nik': { $regex: search[1] } },
+        { 'ktp.place_ob': { $regex: search[1] } },
+        { 'ktp.date_ob': { $regex: search[1] } },
+        { 'ktp.gender': { $regex: search[1] } },
+        { 'ktp.blood_type': { $regex: search[1] } },
+        { 'ktp.address': { $regex: search[1] } },
+        { phone_number: { $regex: search[1] } },
+      ],
     });
-  }
-  return results;
-}
-
-/**
- * Get a list of Accounts with search 'email'
- * @param {number} page_number - Page Number
- * @param {number} page_size - Page Size
- * @param {string} sort_split - Sort
- * @param {string} search_word - Search
- * @returns {Promise}
- */
-async function getAccountsEmail(
-  page_number,
-  page_size,
-  sort_split,
-  search_word
-) {
-  // change to lower case and remove space
-  var sortTag = lowerCase(sort_split[0]).replace(/\s/g, '');
-
-  // Conditional Statement untuk page_number & page_size diisi
-  if (sortTag == 'account_name' && page_size > 0 && page_number > 0) {
-    // jika field key dari sort adalah 'name'
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    })
-      .sort({ account_name: sort_split[1], _id: sort_split[1] })
+  } else if (page_number > 0 && page_size > 0) {
+    var results = Account.find()
+      .sort([sort])
       .skip((page_number - 1) * page_size)
       .limit(page_size);
-  } else if (sortTag == 'account_email' && page_size > 0 && page_number > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    })
-      .sort({ account_email: sort_split[1], _id: sort_split[1] })
-      .skip((page_number - 1) * page_size)
-      .limit(page_size);
-  } else if (sortTag == '' && page_size > 0 && page_number > 0) {
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    })
-      .skip((page_number - 1) * page_size)
-      .limit(page_size);
-  } else if (sortTag == 'account_name' && page_size == 0 && page_number == 0) {
-    // Conditional Statement untuk page_number & page_size tidak diisi
-    // jika field key dari sort adalah 'name'
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    }).sort({ name: sort_split[1], _id: sort_split[1] });
-  } else if (sortTag == 'account_email' && page_size == 0 && page_number == 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    }).sort({ email: sort_split[1], _id: sort_split[1] });
-  } else if ((sortTag == 'account_name' && page_size > 0) || page_number > 0) {
-    // Conditional Statement untuk salah satu dari page_number dan page_size yang tidak diisi
-    // jika field key dari sort adalah 'name'
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    }).sort({ account_name: sort_split[1], _id: sort_split[1] });
-  } else if ((sortTag == 'account_email' && page_size > 0) || page_number > 0) {
-    // jika field key dari sort adalah 'email'
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    }).sort({ account_email: sort_split[1], _id: sort_split[1] });
+  } else if (
+    (page_number == 0 && page_size == 0) ||
+    page_number > 0 ||
+    page_size > 0
+  ) {
+    var results = Account.find().sort([sort]);
   } else {
-    // jika hanya search yang diisi (sort & page_number & page_size tidak diisi)
-    // Jika hanya search dan page_size diisi (sort & page number tidak diisi)
-    // jika hanya search dan page_number yang diisi (sort & page size tidak diisi)
-    var results = await Account.find({
-      account_email: { $regex: trimStart(search_word[1]) },
-    });
+    // jika page_number, page_size dan sort tidak diisi
+    var results = Account.find();
   }
+
   return results;
 }
 
@@ -215,28 +93,28 @@ async function getAccountsEmail(
  * @returns {Promise}
  */
 async function getCountAccounts() {
-  return account.countDocuments();
+  return Account.find().count();
 }
 
 /**
- * Get a total of accounts match name
- * @param {string} search_word
+ * Get a total of accounts match search
+ * @param {string} search
  * @returns {Promise}
  */
-async function getCountAccountsName(search_word) {
+async function getCountAccountsSearch(search) {
   return Account.find({
-    account_name: { $regex: trimStart(search_word[1]) },
-  }).count();
-}
-
-/**
- * Get a total of accounts match email
- * @param {string} search_word
- * @returns {Promise}
- */
-async function getCountAccountsEmail(search_word) {
-  return Account.find({
-    account_email: { $regex: trimStart(search_word[1]) },
+    $or: [
+      { account_number: { $regex: search[1] } },
+      { name: { $regex: search[1] } },
+      { email: { $regex: search[1] } },
+      { 'ktp.nik': { $regex: search[1] } },
+      { 'ktp.place_ob': { $regex: search[1] } },
+      { 'ktp.date_ob': { $regex: search[1] } },
+      { 'ktp.gender': { $regex: search[1] } },
+      { 'ktp.blood_type': { $regex: search[1] } },
+      { 'ktp.address': { $regex: search[1] } },
+      { phone_number: { $regex: search[1] } },
+    ],
   }).count();
 }
 
@@ -277,23 +155,35 @@ async function deleteEmail(email) {
 /* SOAL NO.3 */
 /**
  * Create new account
- * @param {string} account_name - Account Name
- * @param {string} account_email - Account Email
- * @param {number} balance - balance
- * @param {string} account_pin - Hashed pin
+ * @param {string} account_number - Account Number
+ * @param {string} name - Account Name
+ * @param {string} email - Account Email
+ * @param {Object} ktp - KTP
+ * @param {string} phone_number - Phone Number
+ * @param {number} balance - Balance
+ * @param {string} pin - Hashed Account Pin
+ * @param {string} access_code - Hashed Access Code
  * @returns {Promise}
  */
 async function createNewAccount(
-  account_name,
-  account_email,
+  account_number,
+  name,
+  email,
+  ktp,
+  phone_number,
   balance,
-  account_pin
+  pin,
+  access_code
 ) {
   return Account.create({
-    account_name,
-    account_email,
+    account_number,
+    name,
+    email,
+    ktp,
+    phone_number,
     balance,
-    account_pin,
+    pin,
+    access_code,
   });
 }
 
@@ -307,8 +197,24 @@ async function deleteAccount(id) {
 }
 
 /**
+ * Delete history transaction
+ * @param {string} id - Account ID
+ * @returns {Promise}
+ */
+async function deleteHistoryTransaction(id) {
+  return Account.updateOne(
+    { _id: id },
+    {
+      $set: {
+        transaction: [],
+      },
+    }
+  );
+}
+
+/**
  * Get account detail
- * @param {string} id - account ID
+ * @param {string} id - Account ID
  * @returns {Promise}
  */
 async function getAccount(id) {
@@ -317,20 +223,29 @@ async function getAccount(id) {
 
 /**
  * Get account by name to prevent duplicate name
- * @param {string} account_name - Account Name
+ * @param {string} name - Account Name
  * @returns {Promise}
  */
-async function getAccountByName(account_name) {
-  return Account.findOne({ account_name });
+async function getAccountByName(name) {
+  return Account.findOne({ name });
 }
 
 /**
  * Get account by email to prevent duplicate email
- * @param {string} account_email - Account Email
+ * @param {string} email - Account Email
  * @returns {Promise}
  */
-async function getAccountByEmail(account_email) {
-  return Account.findOne({ account_email });
+async function getAccountByEmail(email) {
+  return Account.findOne({ email });
+}
+
+/**
+ * Get account by account number
+ * @param {string} account_number - Account Number
+ * @returns {Promise}
+ */
+async function getAccountByAccountNumber(account_number) {
+  return Account.findOne({ account_number });
 }
 
 /**
@@ -353,15 +268,15 @@ async function updateAccountById(id, balance) {
 }
 
 /**
- * Update existing account by name
- * @param {string} account_name_receiver - Account ID
+ * Update existing account by account number
+ * @param {string} account_number - Account Number
  * @param {string} balance - Balance
  * @returns {Promise}
  */
-async function updateAccountByName(account_name_receiver, balance) {
+async function updateAccountByNumberAccount(account_number, balance) {
   return Account.updateOne(
     {
-      account_name: account_name_receiver,
+      account_number: account_number,
     },
     {
       $set: {
@@ -372,23 +287,118 @@ async function updateAccountByName(account_name_receiver, balance) {
 }
 
 /**
- * Update account pin
+ * Update existing account by id
  * @param {string} id - Account ID
- * @param {string} account_pin - New hashed pin
+ * @param {string} balance - Balance
+ * @param {string} type - Type
+ * @param {string} dateString - Date String
+ * @param {boolean} condition - Plus or Minus
  * @returns {Promise}
  */
-async function changePin(id, account_pin) {
-  return Account.updateOne({ _id: id }, { $set: { account_pin } });
+async function updateAccountTransactionById(
+  id,
+  balance,
+  type,
+  dateString,
+  condition
+) {
+  if (condition == true) {
+    var balanceUpdate = `+${balance}`;
+  } else {
+    var balanceUpdate = `-${balance}`;
+  }
+  return Account.updateOne(
+    {
+      _id: id,
+    },
+    {
+      $push: {
+        transaction: {
+          date: dateString,
+          type: type,
+          balance: balanceUpdate,
+        },
+      },
+    }
+  );
+}
+
+/**
+ * Update existing account by account number
+ * @param {string} account_number - Account Number Receiver
+ * @param {string} balance - Balance
+ * @param {string} type - Type
+ * @param {string} dateString - Date String
+ * @returns {Promise}
+ */
+async function updateAccountTransactionByAccountNumber(
+  account_number,
+  balance,
+  type,
+  dateString
+) {
+  return Account.updateOne(
+    {
+      account_number: account_number,
+    },
+    {
+      $push: {
+        transaction: {
+          date: dateString,
+          type: type,
+          balance: `+${balance}`,
+        },
+      },
+    }
+  );
+}
+
+/**
+ * Update pin
+ * @param {string} id - Account ID
+ * @param {string} pin - New Hashed Pin
+ * @returns {Promise}
+ */
+async function changePin(id, pin) {
+  return Account.updateOne({ _id: id }, { $set: { pin } });
+}
+
+/**
+ * Update access code
+ * @param {string} id - Account ID
+ * @param {string} access_code - New Hashed Access Code
+ * @returns {Promise}
+ */
+async function changeAccessCode(id, access_code) {
+  return Account.updateOne({ _id: id }, { $set: { access_code } });
+}
+
+/**
+ * Update profile
+ * @param {string} id - Account ID
+ * @param {string} name - Name
+ * @param {string} email - Email
+ * @param {string} phone_number - Phone Number
+ * @returns {Promise}
+ */
+async function changeProfile(id, name, email, phone_number) {
+  return Account.updateOne(
+    { _id: id },
+    {
+      $set: {
+        name,
+        email,
+        phone_number,
+      },
+    }
+  );
 }
 
 module.exports = {
   /* PENERENAPAN SOAL NO.1 */
-  getAccounts,
-  getAccountsEmail,
-  getAccountsName,
+  getAccountsPagination,
   getCountAccounts,
-  getCountAccountsName,
-  getCountAccountsEmail,
+  getCountAccountsSearch,
 
   /* PENERENAPAN SOAL NO.2 */
   createEmail,
@@ -398,10 +408,16 @@ module.exports = {
   /* SOAL NO.3 */
   createNewAccount,
   deleteAccount,
+  deleteHistoryTransaction,
   getAccount,
   getAccountByName,
   getAccountByEmail,
+  getAccountByAccountNumber,
   updateAccountById,
-  updateAccountByName,
+  updateAccountByNumberAccount,
   changePin,
+  changeAccessCode,
+  changeProfile,
+  updateAccountTransactionById,
+  updateAccountTransactionByAccountNumber,
 };

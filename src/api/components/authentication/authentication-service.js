@@ -149,7 +149,7 @@ async function createBlock(email, hours, minutes) {
     minutes
   );
   if (!success) {
-    return null;
+    return false;
   } else {
     return true;
   }
